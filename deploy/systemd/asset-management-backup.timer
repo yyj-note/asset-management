@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Asset Management MySQL backup every month
+
+[Timer]
+OnCalendar=*-*-01 02:30:00
+Persistent=true
+RandomizedDelaySec=10m
+Unit=asset-management-backup.service
+
+[Install]
+WantedBy=timers.target

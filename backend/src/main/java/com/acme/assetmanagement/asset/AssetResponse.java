@@ -1,0 +1,82 @@
+package com.acme.assetmanagement.asset;
+
+import com.acme.assetmanagement.lookup.LookupController.LookupResponse;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record AssetResponse(
+        Long id,
+        String qrToken,
+        String assetTag,
+        String name,
+        String ownershipDepartment,
+        String cpu,
+        String memory,
+        String storage,
+        String graphicsCard,
+        String manufacturerSerialNumber,
+        String screenSize,
+        String displayResolution,
+        String displayInterface,
+        String orderNumber,
+        LookupResponse company,
+        LookupResponse model,
+        LookupResponse category,
+        LookupResponse status,
+        LookupResponse location,
+        BigDecimal purchasePrice,
+        BigDecimal currentValue,
+        boolean checkedOut,
+        String assignedTo,
+        String imageUrl,
+        String notes,
+        List<AssetLinkResponse> boundDisplays,
+        AssetLinkResponse boundComputer,
+        List<RelatedDeviceResponse> relatedDevices,
+        List<AccessoryResponse> accessories,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+) {
+    public static AssetResponse from(Asset asset) {
+        return new AssetResponse(
+                asset.getId(), asset.getQrToken(), asset.getAssetTag(), asset.getName(), asset.getOwnershipDepartment(),
+                asset.getCpu(), asset.getMemory(), asset.getStorage(), asset.getGraphicsCard(),
+                asset.getManufacturerSerialNumber(),
+                asset.getScreenSize(), asset.getDisplayResolution(), asset.getDisplayInterface(), asset.getOrderNumber(),
+                LookupResponse.from(asset.getCompany()), LookupResponse.from(asset.getModel()),
+                LookupResponse.from(asset.getCategory()), LookupResponse.from(asset.getStatus()),
+                LookupResponse.from(asset.getLocation()), asset.getPurchasePrice(), asset.getCurrentValue(),
+                asset.isCheckedOut(), asset.getAssignedTo(), asset.getImageUrl(),
+                asset.getNotes(),
+                asset.getBoundDisplays().stream().map(AssetLinkResponse::from).toList(),
+                asset.getBoundComputers().stream().findFirst().map(AssetLinkResponse::from).orElse(null),
+                asset.getRelatedDevices().stream().map(RelatedDeviceResponse::from).toList(),
+                asset.getAccessories().stream().map(AccessoryResponse::from).toList(),
+                asset.getCreatedAt(), asset.getUpdatedAt()
+        );
+    }
+
+    public record AssetLinkResponse(Long id, String assetTag, String name, String model, String category) {
+        static AssetLinkResponse from(Asset asset) {
+            return new AssetLinkResponse(asset.getId(), asset.getAssetTag(), asset.getName(),
+                    asset.getModel() == null ? null : asset.getModel().getName(),
+                    asset.getCategory() == null ? null : asset.getCategory().getName());
+        }
+    }
+
+    public record RelatedDeviceResponse(String name, String model, String serialNumber, String orderNumber,
+                                        String specification, int quantity) {
+        static RelatedDeviceResponse from(RelatedDevice device) {
+            return new RelatedDeviceResponse(device.getName(), device.getModel(), device.getSerialNumber(),
+                    device.getOrderNumber(), device.getSpecification(), device.getQuantity());
+        }
+    }
+
+    public record AccessoryResponse(String name, String specification, int quantity) {
+        static AccessoryResponse from(AssetAccessory accessory) {
+            return new AccessoryResponse(accessory.getName(), accessory.getSpecification(), accessory.getQuantity());
+        }
+    }
+}

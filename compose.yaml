@@ -1,0 +1,83 @@
+name: asset-management
+
+services:
+  mysql:
+    image: mysql:8.4.11
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_DATABASE: asset_management
+      MYSQL_USER: asset_app
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在.env中设置MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在.env中设置MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - asset_internal
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://mysql:3306/asset_management?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: asset_app
+      DB_PASSWORD: ${MYSQL_PASSWORD:?请在.env中设置MYSQL_PASSWORD}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-2}
+      ASSET_ADMIN_USERNAME: ${ASSET_ADMIN_USERNAME:-admin}
+      ASSET_ADMIN_PASSWORD: ${ASSET_ADMIN_PASSWORD:?请在.env中设置ASSET_ADMIN_PASSWORD}
+      ASSET_PUBLIC_BASE_URL: ${ASSET_PUBLIC_BASE_URL:-}
+    expose:
+      - "8080"
+    networks:
+      - asset_internal
+    depends_on:
+      mysql:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${HTTP_BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:80"
+    networks:
+      - asset_internal
+    depends_on:
+      backend:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/healthz | grep -q ok"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+networks:
+  asset_internal:
+    driver: bridge
+
+volumes:
+  mysql_data:

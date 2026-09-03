@@ -1,0 +1,16 @@
+[Unit]
+Description=Asset Management monthly MySQL backup
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@PROJECT_DIR@
+ExecStart=@PROJECT_DIR@/scripts/backup-mysql.sh
+Environment=ASSET_BACKUP_RETENTION=12
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target
