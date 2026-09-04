@@ -5,7 +5,7 @@ import { AssetDetail } from './components/AssetDetail'
 import { AssetForm } from './components/AssetForm'
 import { AssetTable } from './components/AssetTable'
 import { LookupModal } from './components/LookupModal'
-import { ArchiveIcon, BoxesIcon, CheckIcon, ChevronIcon, CloseIcon, FilterIcon, LogoutIcon, PlusIcon, ReturnIcon, SearchIcon, UserIcon, WrenchIcon } from './components/Icons'
+import { ArchiveIcon, BoxesIcon, CheckIcon, ChevronIcon, CloseIcon, LogoutIcon, PlusIcon, ReturnIcon, SearchIcon, UserIcon, WrenchIcon } from './components/Icons'
 import { Sidebar } from './components/Sidebar'
 import type { AppSection } from './components/Sidebar'
 import { LoginPage } from './components/LoginPage'
@@ -323,7 +323,6 @@ export default function App() {
       <div className="invoice-toolbar">
         <div className="invoice-toolbar-filters">
           <label className="category-filter" title="按资产分类筛选">
-            <span className="category-filter-icon"><FilterIcon /></span>
             <select aria-label="筛选资产分类" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="">全部分类</option>
               {categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}

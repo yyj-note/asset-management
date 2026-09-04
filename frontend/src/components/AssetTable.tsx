@@ -21,7 +21,7 @@ export function AssetTable({ assets, loading, canEdit, onSelect, onEdit, onClone
   const showPurchasePrice = assets.some((asset) => asset.purchasePrice != null)
   const showCurrentValue = assets.some((asset) => asset.currentValue != null)
   const valueColumnCount = Number(showPurchasePrice) + Number(showCurrentValue)
-  const columnCount = 13 + valueColumnCount
+  const columnCount = 12 + valueColumnCount
 
   return (
     <><div className="table-wrap">
@@ -34,7 +34,6 @@ export function AssetTable({ assets, loading, canEdit, onSelect, onEdit, onClone
           <col className="asset-col-cpu" />
           <col className="asset-col-memory" />
           <col className="asset-col-storage" />
-          <col className="asset-col-graphics" />
           <col className="asset-col-category" />
           <col className="asset-col-status" />
           <col className="asset-col-assignee" />
@@ -44,7 +43,7 @@ export function AssetTable({ assets, loading, canEdit, onSelect, onEdit, onClone
           <col className="asset-col-actions" />
         </colgroup>
         <thead><tr>
-          <th>资产编号</th><th>资产名称</th><th>图片</th><th>设备型号</th><th>CPU</th><th>内存</th><th>硬盘</th><th>显卡</th><th>分类</th><th>状态</th>
+          <th>资产编号</th><th>资产名称</th><th>图片</th><th>设备型号</th><th>CPU</th><th>内存</th><th>硬盘</th><th>分类</th><th>状态</th>
           <th>领用人</th><th>位置</th>{showPurchasePrice && <th className="number">采购价格</th>}{showCurrentValue && <th className="number">当前价值</th>}<th className="sticky-action">操作</th>
         </tr></thead>
         <tbody>
@@ -65,7 +64,6 @@ export function AssetTable({ assets, loading, canEdit, onSelect, onEdit, onClone
                <td><span className="configuration-value compact-text" title={isComputer ? asset.cpu || '' : ''}>{isComputer ? asset.cpu || '' : ''}</span></td>
                <td><span className="configuration-value compact-text" title={isComputer ? asset.memory || '' : ''}>{isComputer ? asset.memory || '' : ''}</span></td>
                <td><span className="configuration-value compact-text" title={isComputer ? asset.storage || '' : ''}>{isComputer ? asset.storage || '' : ''}</span></td>
-               <td><span className="configuration-value compact-text" title={isComputer ? asset.graphicsCard || '' : ''}>{isComputer ? asset.graphicsCard || '' : ''}</span></td>
                <td><span className="compact-text" title={asset.category.name}>{asset.category.name}</span></td>
                <td><span className={`status-pill ${stateClass}`}>{state}</span></td>
                <td><span className="compact-text" title={asset.assignedTo || '暂未领用'}>{asset.assignedTo || '暂未领用'}</span></td>
