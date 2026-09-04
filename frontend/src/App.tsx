@@ -15,6 +15,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { AuditLogPage } from './components/AuditLogPage'
 import { AvatarEditor } from './components/AvatarEditor'
 import { AssetLabelPrintPreview } from './components/AssetLabelPrintPreview'
+import { ComputerDashboard } from './components/ComputerDashboard'
 
 type Page = { name: 'list' } | { name: 'form'; asset: Asset | null; clone?: boolean } | { name: 'detail'; asset: Asset }
 type AppHistoryState = { assetManagement: true; section: AppSection; page: Page; depth: number }
@@ -31,7 +32,7 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
-  const [section, setSection] = useState<AppSection>('assets')
+  const [section, setSection] = useState<AppSection>('dashboard')
   const [page, setPage] = useState<Page>({ name: 'list' })
   const [assets, setAssets] = useState<Asset[]>([])
   const [suggestionAssets, setSuggestionAssets] = useState<Asset[]>([])
@@ -129,7 +130,7 @@ export default function App() {
       setSection(current.section)
       setPage(current.page)
     } else {
-      window.history.replaceState({ assetManagement: true, section: 'assets', page: { name: 'list' }, depth: 0 } satisfies AppHistoryState, '', window.location.href)
+      window.history.replaceState({ assetManagement: true, section: 'dashboard', page: { name: 'list' }, depth: 0 } satisfies AppHistoryState, '', window.location.href)
     }
   }, [authUser])
 
@@ -159,7 +160,7 @@ export default function App() {
 
   const logout = async () => {
     try { await api.logout() } catch { /* Session may already be invalid; still return to login. */ }
-    setAuthUser(null); setSection('assets'); setPage({ name: 'list' }); setAssets([]); setSuggestionAssets([])
+    setAuthUser(null); setSection('dashboard'); setPage({ name: 'list' }); setAssets([]); setSuggestionAssets([])
     window.history.replaceState(null, '', window.location.href)
   }
 
@@ -311,6 +312,20 @@ export default function App() {
   if (section === 'logs' && authUser.canManageUsers) return <div className="app-shell">
     <Sidebar section={section} canManageUsers={authUser.canManageUsers} onFilter={setFilter} onSection={(next) => showView(next, { name: 'list' })} />
     <main className="main-content">{topbar}<div className="content"><AuditLogPage onNotify={notify} /></div></main>
+    {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
+  </div>
+
+  if (section === 'dashboard') return <div className="app-shell">
+    <Sidebar section={section} canManageUsers={authUser.canManageUsers} onFilter={setFilter} onSection={(next) => showView(next, { name: 'list' })} />
+    <main className="main-content">{topbar}<div className="content cockpit-content"><ComputerDashboard
+      assets={suggestionAssets}
+      loading={loading}
+      canCreate={hasPermission('ASSET_CREATE')}
+      onRefresh={() => void load('')}
+      onCreate={() => showView('assets', { name: 'form', asset: null })}
+      onViewAssets={(nextFilter) => { setAssets(suggestionAssets); setFilter(nextFilter); setCategoryFilter(''); setSearch(''); showView('assets', { name: 'list' }) }}
+      onSelect={(asset) => showView('assets', { name: 'detail', asset })}
+    /></div></main>
     {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
   </div>
 

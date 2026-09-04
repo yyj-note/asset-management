@@ -1,7 +1,7 @@
 import type { AssetFilter } from '../types'
-import { ClipboardIcon, DashboardIcon, SettingsIcon, UsersIcon } from './Icons'
+import { BoxesIcon, ClipboardIcon, DashboardIcon, SettingsIcon, UsersIcon } from './Icons'
 
-export type AppSection = 'assets' | 'users' | 'logs' | 'settings'
+export type AppSection = 'dashboard' | 'assets' | 'users' | 'logs' | 'settings'
 
 interface Props {
   section: AppSection
@@ -17,8 +17,11 @@ export function Sidebar({ section, canManageUsers, onFilter, onSection }: Props)
         <strong>资产中心</strong>
       </div>
       <nav>
+        <button aria-label="驾驶舱" className={`nav-item ${section === 'dashboard' ? 'active' : ''}`} onClick={() => onSection('dashboard')}>
+          <DashboardIcon /><span>驾驶舱</span>
+        </button>
         <button aria-label="资产" className={`nav-item ${section === 'assets' ? 'active' : ''}`} onClick={() => { onSection('assets'); onFilter('all') }}>
-          <DashboardIcon /><span>资产</span>
+          <BoxesIcon /><span>资产</span>
         </button>
         {canManageUsers && <button aria-label="用户" className={`nav-item ${section === 'users' ? 'active' : ''}`} onClick={() => onSection('users')}>
           <UsersIcon /><span>用户</span>
