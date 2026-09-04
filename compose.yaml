@@ -40,6 +40,9 @@ services:
       ASSET_ADMIN_USERNAME: ${ASSET_ADMIN_USERNAME:-admin}
       ASSET_ADMIN_PASSWORD: ${ASSET_ADMIN_PASSWORD:?请在.env中设置ASSET_ADMIN_PASSWORD}
       ASSET_PUBLIC_BASE_URL: ${ASSET_PUBLIC_BASE_URL:-}
+      ASSET_IMAGE_DIRECTORY: /app/data/asset-images
+    volumes:
+      - asset_images:/app/data/asset-images
     expose:
       - "8080"
     networks:
@@ -81,3 +84,4 @@ networks:
 
 volumes:
   mysql_data:
+  asset_images:

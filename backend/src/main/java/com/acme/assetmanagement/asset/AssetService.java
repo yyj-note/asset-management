@@ -25,13 +25,16 @@ public class AssetService {
     private final LookupRepository lookupRepository;
     private final AuditLogService auditLogService;
     private final AssetTagGenerator assetTagGenerator;
+    private final AssetImageStorageService assetImageStorageService;
 
     public AssetService(AssetRepository assetRepository, LookupRepository lookupRepository,
-                        AuditLogService auditLogService, AssetTagGenerator assetTagGenerator) {
+                        AuditLogService auditLogService, AssetTagGenerator assetTagGenerator,
+                        AssetImageStorageService assetImageStorageService) {
         this.assetRepository = assetRepository;
         this.lookupRepository = lookupRepository;
         this.auditLogService = auditLogService;
         this.assetTagGenerator = assetTagGenerator;
+        this.assetImageStorageService = assetImageStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -239,6 +242,7 @@ public class AssetService {
                 ? clean(request.imageUrl()) == null ? List.of() : List.of(request.imageUrl().trim())
                 : request.imageUrls().stream().map(this::clean).filter(Objects::nonNull).distinct().toList();
         if (images.size() > 5) throw new ApiException(HttpStatus.BAD_REQUEST, "资产图片最多上传5张");
+        images = assetImageStorageService.persistReferences(images);
         asset.setImageUrls(images);
         asset.setImageUrl(images.isEmpty() ? null : images.getFirst());
         asset.setNotes(clean(request.notes()));

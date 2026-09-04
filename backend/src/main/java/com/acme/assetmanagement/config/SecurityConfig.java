@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository))
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/csrf", "/api/public/assets/**", "/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/csrf", "/api/public/assets/**", "/api/public/asset-images/**", "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))

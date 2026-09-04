@@ -93,8 +93,7 @@ public class Asset {
     @ElementCollection
     @CollectionTable(name = "asset_images", joinColumns = @JoinColumn(name = "asset_id"))
     @OrderColumn(name = "sort_order")
-    @Lob
-    @Column(name = "image_url", nullable = false)
+    @Column(name = "image_url", nullable = false, length = 1024)
     private List<String> imageUrls = new ArrayList<>();
 
     @Column(length = 2000)

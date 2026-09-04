@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,7 +38,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
+        "app.asset-images.directory=${java.io.tmpdir}/asset-management-test-images"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
@@ -253,8 +257,8 @@ class AssetApiTest {
                 {"assetTag":"202609010001","name":"更新后的资产","companyId":%d,"modelId":%d,
                  "modelName":"ThinkPad T14 Gen 5","categoryId":%d,"statusId":%d,"locationId":%d,
                  "cpu":"i7","memory":"32G","storage":"1T","checkedOut":false,
-                 "imageUrl":"data:image/png;base64,bGVnYWN5",
-                 "imageUrls":["data:image/png;base64,aW1hZ2Ux","data:image/png;base64,aW1hZ2Uy"],"notes":"更新测试",
+                 "imageUrl":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+                 "imageUrls":["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","data:IMAGE/PNG;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="],"notes":"更新测试",
                  "relatedDevices":[{"name":"鼠标","model":"M90","specification":"USB","quantity":1}],
                  "accessories":[]}
                 """.formatted(companyId, modelId, categoryId, statusId, locationId);
@@ -263,10 +267,18 @@ class AssetApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("更新后的资产"))
-                .andExpect(jsonPath("$.imageUrl").value("data:image/png;base64,aW1hZ2Ux"))
+                .andExpect(jsonPath("$.imageUrl", startsWith("/api/public/asset-images/")))
                 .andExpect(jsonPath("$.imageUrls.length()").value(2))
+                .andExpect(jsonPath("$.imageUrls[1]", startsWith("/api/public/asset-images/")))
                 .andExpect(jsonPath("$.relatedDevices[0].name").value("鼠标"))
                 .andExpect(jsonPath("$.accessories").isEmpty());
+
+        String storedImageUrl = assetRepository.findById(assetId).orElseThrow().getImageUrls().getFirst();
+        assertTrue(storedImageUrl.startsWith("/api/public/asset-images/"));
+        assertFalse(storedImageUrl.startsWith("data:"));
+        mockMvc.perform(get(storedImageUrl))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG));
 
         assertTrue(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.CPU, "i7").isPresent());
 
@@ -277,7 +289,7 @@ class AssetApiTest {
                 .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("编号不能修改")));
 
         String tooManyImages = body.replace(
-                "\"data:image/png;base64,aW1hZ2Ux\",\"data:image/png;base64,aW1hZ2Uy\"",
+                "\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\",\"data:IMAGE/PNG;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\"",
                 "\"1\",\"2\",\"3\",\"4\",\"5\",\"6\"");
         mockMvc.perform(put("/api/assets/{id}", assetId).with(assetUser()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(tooManyImages))
