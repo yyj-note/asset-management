@@ -59,41 +59,45 @@ export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onE
 
   return <section className="record-page">
     <div className="record-card-outer"><article className="record-card">
-      <div className="record-topline">
-        {qrUnavailable
-          ? <div className="asset-label-download unavailable"><strong>资产标签未配置</strong><span>请联系超级管理员前往设置</span></div>
-          : <a className="asset-label-download" href={`/label-print?assetId=${asset.id}&assetTag=${encodeURIComponent(asset.assetTag)}`} target="_blank" rel="noopener" title="点击预览并打印资产标签"><img src={`/api/assets/${asset.id}/qr`} onError={() => setQrUnavailable(true)} alt={`${asset.assetTag} 资产标签`} /></a>}
-      </div>
+      <div className="record-scroll-body" tabIndex={0} aria-label="资产详情内容">
+        <div className="record-summary-grid">
+          <div className="record-topline">
+            {qrUnavailable
+              ? <div className="asset-label-download unavailable"><strong>资产标签未配置</strong><span>请联系超级管理员前往设置</span></div>
+              : <a className="asset-label-download" href={`/label-print?assetId=${asset.id}&assetTag=${encodeURIComponent(asset.assetTag)}`} target="_blank" rel="noopener" title="点击预览并打印资产标签"><img src={`/api/assets/${asset.id}/qr`} onError={() => setQrUnavailable(true)} alt={`${asset.assetTag} 资产标签`} /></a>}
+          </div>
 
-      <div className="record-table">
-        <div className="record-table-head"><span>参数名称</span><strong>参数内容</strong><span>参数名称</span><strong>参数内容</strong></div>
-        {parameterRows.map(([labelA, valueA, labelB, valueB]) => <div className="record-table-row" key={labelA}>
-          <span>{labelA}</span><strong>{valueA}</strong><span>{labelB}</span><strong>{valueB}</strong>
-        </div>)}
-      </div>
-
-      {profile !== 'GENERAL' && <section className="record-subsection">
-        <div className="record-subsection-head"><div><h3>设备绑定</h3><span>{boundAssets.length} 项</span></div></div>
-        <div className="record-item-table related-record-table">
-          <div className="record-item-head"><span>资产编号</span><span>资产名称</span><span>分类</span><span>型号</span><span>绑定关系</span><span>数量</span></div>
-          {boundAssets.length === 0 ? <div className="record-item-empty">{profile === 'COMPUTER' ? '暂未绑定显示器' : '暂未绑定电脑'}</div> : boundAssets.map((item) => <div className="record-item-row" key={item.id}><strong>{item.assetTag}</strong><span>{item.name}</span><span>{item.category || '—'}</span><span>{item.model || '—'}</span><span>{profile === 'COMPUTER' ? '已配显示器' : '所属电脑'}</span><b>× 1</b></div>)}
+          <div className="record-table">
+            <div className="record-table-head"><span>参数名称</span><strong>参数内容</strong><span>参数名称</span><strong>参数内容</strong></div>
+            {parameterRows.map(([labelA, valueA, labelB, valueB]) => <div className="record-table-row" key={labelA}>
+              <span>{labelA}</span><strong>{valueA}</strong><span>{labelB}</span><strong>{valueB}</strong>
+            </div>)}
+          </div>
         </div>
-      </section>}
 
-      <section className="record-subsection">
-        <div className="record-subsection-head"><div><h3>随附配件</h3><span>{relatedItems.reduce((sum, item) => sum + item.quantity, 0)} 件</span></div></div>
-        <div className="record-item-table related-record-table">
-          <div className="record-item-head"><span>设备名称</span><span>型号</span><span>序列号</span><span>订单号</span><span>规格参数</span><span>数量</span></div>
-          {relatedItems.length === 0 ? <div className="record-item-empty">暂无随附配件</div> : relatedItems.map((device, index) => <div className="record-item-row" key={`${device.name}-${index}`}><strong>{device.name}</strong><span>{device.model || '—'}</span><span>{device.serialNumber || '—'}</span><span>{device.orderNumber || '—'}</span><span>{device.specification || '—'}</span><b>× {device.quantity}</b></div>)}
-        </div>
-      </section>
+        {profile !== 'GENERAL' && <section className="record-subsection">
+          <div className="record-subsection-head"><div><h3>设备绑定</h3><span>{boundAssets.length} 项</span></div></div>
+          <div className="record-item-table related-record-table">
+            <div className="record-item-head"><span>资产编号</span><span>资产名称</span><span>分类</span><span>型号</span><span>绑定关系</span><span>数量</span></div>
+            {boundAssets.length === 0 ? <div className="record-item-empty">{profile === 'COMPUTER' ? '暂未绑定显示器' : '暂未绑定电脑'}</div> : boundAssets.map((item) => <div className="record-item-row" key={item.id}><strong>{item.assetTag}</strong><span>{item.name}</span><span>{item.category || '—'}</span><span>{item.model || '—'}</span><span>{profile === 'COMPUTER' ? '已配显示器' : '所属电脑'}</span><b>× 1</b></div>)}
+          </div>
+        </section>}
 
-      <div className="record-bottom centered-media">
-        <div className="record-notes-media">
-          {asset.imageUrl
-            ? <div className="record-image-shell"><button className="record-image-preview" title="点击放大图片" onClick={() => setImagePreviewOpen(true)}><img src={asset.imageUrl} alt={asset.name} /><span>点击放大</span></button></div>
-            : <div className="record-placeholder record-large-placeholder">{asset.name.slice(0, 1)}</div>}
-          <div className="record-notes"><span>备注</span><p>{asset.notes || '暂无备注'}</p></div>
+        <section className="record-subsection">
+          <div className="record-subsection-head"><div><h3>随附配件</h3><span>{relatedItems.reduce((sum, item) => sum + item.quantity, 0)} 件</span></div></div>
+          <div className="record-item-table related-record-table">
+            <div className="record-item-head"><span>设备名称</span><span>型号</span><span>序列号</span><span>订单号</span><span>规格参数</span><span>数量</span></div>
+            {relatedItems.length === 0 ? <div className="record-item-empty">暂无随附配件</div> : relatedItems.map((device, index) => <div className="record-item-row" key={`${device.name}-${index}`}><strong>{device.name}</strong><span>{device.model || '—'}</span><span>{device.serialNumber || '—'}</span><span>{device.orderNumber || '—'}</span><span>{device.specification || '—'}</span><b>× {device.quantity}</b></div>)}
+          </div>
+        </section>
+
+        <div className="record-bottom record-media-panel">
+          <div className="record-notes-media">
+            {asset.imageUrl
+              ? <div className="record-image-shell"><button className="record-image-preview" title="点击放大图片" onClick={() => setImagePreviewOpen(true)}><img src={asset.imageUrl} alt={asset.name} /><span>点击放大</span></button></div>
+              : <div className="record-placeholder record-large-placeholder">{asset.name.slice(0, 1)}</div>}
+            <div className="record-notes"><span>备注</span><p>{asset.notes || '暂无备注'}</p></div>
+          </div>
         </div>
       </div>
 

@@ -782,6 +782,20 @@ body { font-size: 15px; }
 .record-actions.danger-zone { margin-top: 20px; padding-top: 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: inset 0 1px 0 rgba(72,98,134,.1); }
 .record-actions.danger-zone > div { display: flex; gap: 9px; }
 .record-actions .button { height: 42px; border-radius: 9px; font-size: 13px; }
+.record-page { height: calc(100dvh - 108px); min-height: 560px; }
+.record-page .record-card-outer,.record-page .record-card { height: 100%; min-height: 0; }
+.record-page .record-card { padding: 0; overflow: hidden; display: grid; grid-template-rows: minmax(0,1fr) auto; }
+.record-scroll-body { min-height: 0; padding: 20px 22px 24px; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; outline: none; overscroll-behavior: contain; }
+.record-scroll-body:focus-visible { box-shadow: inset 0 0 0 2px rgba(93,135,255,.28); }
+.record-summary-grid { display: grid; grid-template-columns: 190px minmax(0,1fr); align-items: start; gap: 20px; }
+.record-summary-grid .record-topline { margin: 0; padding-top: 2px; align-items: flex-start; }
+.record-summary-grid .asset-label-download { width: 178px; }
+.record-media-panel { display: block; }
+.record-media-panel .record-notes-media { width: 100%; display: grid; grid-template-columns: minmax(220px,360px) minmax(0,1fr); align-items: stretch; gap: 18px; }
+.record-media-panel .record-image-shell,.record-media-panel .record-large-placeholder { width: 100%; }
+.record-media-panel .record-notes { width: 100%; min-height: 135px; padding: 16px 18px; border-radius: 13px; background: #f7f9fc; box-shadow: inset 0 0 0 1px rgba(72,98,134,.07); }
+.record-page .record-item-empty { min-height: 54px; }
+.record-page .record-actions.danger-zone { min-height: 72px; margin: 0; padding: 14px 20px; position: relative; z-index: 1; background: rgba(255,255,255,.98); box-shadow: inset 0 1px 0 rgba(72,98,134,.1),0 -14px 32px rgba(57,79,116,.045); }
 .danger-button { color: #e5535e; background: #fff0f1; box-shadow: inset 0 0 0 1px rgba(229,83,94,.16); }
 .return-button { color: #fff; background: #6755ad; box-shadow: 0 9px 20px rgba(103,85,173,.22); }
 .clone-button { color: #fff; background: #10aeca; box-shadow: 0 9px 20px rgba(16,174,202,.2); }
@@ -1033,6 +1047,10 @@ body { font-size: 15px; }
   .basic-info-grid,.device-config-grid,.device-config-grid.profile-general,.value-use-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .asset-binding-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .audit-filters { grid-template-columns: repeat(4,minmax(0,1fr)); }.audit-keyword { grid-column: span 2; }
+  .record-page { height: calc(100dvh - 138px); }
+  .record-summary-grid { grid-template-columns: 174px minmax(0,1fr); gap: 16px; }
+  .record-summary-grid .asset-label-download { width: 162px; }
+  .record-summary-grid .asset-label-download img { width: 150px; }
 }
 @media (max-width: 760px) {
   .public-asset-page { padding: 0; background: #fff; }.public-asset-card { min-height: 100dvh; border-radius: 0; box-shadow: none; }.public-asset-head { min-height: 136px; padding: 22px 18px; grid-template-columns: 46px 1fr; gap: 13px; }.public-asset-mark { width: 46px; height: 46px; border-radius: 14px; }.public-asset-head h1 { font-size: 20px; }.public-status { grid-column: 2; width: max-content; margin-top: -7px; }.public-asset-image { height: 260px; padding: 14px 16px 0; }.public-asset-fields { padding: 18px 16px; grid-template-columns: 1fr; }.public-asset-fields > div:nth-child(odd) { border-right: 0; }.public-related-section { margin: 0 16px; }.public-related-item { grid-template-columns: 1fr auto; }.public-related-item > div:nth-child(2),.public-related-item > div:nth-child(3) { grid-column: 1; }.public-related-item > b { grid-column: 2; grid-row: 1; }.public-action-shell { margin: 0 16px; padding-bottom: 18px; }.public-action-panel { align-items: stretch; flex-direction: column; gap: 0; }.public-action-panel::before { width: 100%; height: 5px; flex-basis: 5px; }.public-action-copy { padding: 15px 13px 12px; }.public-return-cta { width: calc(100% - 16px); margin: 0 8px 8px; justify-content: space-between; }.public-action-complete { margin: 0 8px 8px; justify-content: center; }.public-action-backdrop { padding: 12px; align-items: end; }.public-modal-shell { width: 100%; border-radius: 28px; }.public-action-modal { max-height: calc(100dvh - 24px); overflow-y: auto; padding: 24px 20px calc(22px + env(safe-area-inset-bottom)); border-radius: 22px; }.public-action-modal h2 { padding-right: 38px; font-size: 20px; }.public-return-summary > div { grid-template-columns: 88px 1fr; }.public-asset-foot { padding: 18px 16px; grid-template-columns: 1fr; }
@@ -1048,6 +1066,16 @@ body { font-size: 15px; }
   .record-actions.danger-zone { align-items: stretch; flex-direction: column-reverse; gap: 12px; }
   .record-actions.danger-zone > div { flex-wrap: wrap; }
   .record-actions.danger-zone .button { flex: 1; }
+  .record-page { height: auto; min-height: 0; }
+  .record-page .record-card-outer,.record-page .record-card { height: auto; overflow: visible; }
+  .record-page .record-card { display: block; }
+  .record-scroll-body { padding: 20px 16px; overflow: visible; }
+  .record-summary-grid { grid-template-columns: 1fr; gap: 18px; }
+  .record-summary-grid .record-topline { justify-content: center; }
+  .record-summary-grid .asset-label-download { width: 178px; }
+  .record-summary-grid .asset-label-download img { width: 166px; }
+  .record-media-panel .record-notes-media { grid-template-columns: 1fr; }
+  .record-page .record-actions.danger-zone { min-height: 0; padding: 16px; }
   .user-row { grid-template-columns: 40px 1fr; }
   .user-updated { display: none; }
   .user-actions { width: auto; grid-column: 2; justify-content: flex-start; }
@@ -1077,11 +1105,13 @@ body { font-size: 15px; }
 }
 
 @media print {
-  @page { size: 60mm 50mm; margin: 0; }
-  html,body,#root { width: 60mm; height: 50mm; min-width: 0; min-height: 0; margin: 0; overflow: hidden; background: #fff; }
-  .label-print-page { width: 60mm; height: 50mm; min-height: 0; display: block; background: #fff; }
+  /* The printer driver owns paper size and orientation. Forcing a landscape
+     60x50 page here makes some label drivers fall back to A4 or 180-degree mode. */
+  @page { margin: 0; }
+  html,body,#root { width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; overflow: hidden; background: #fff; }
+  .label-print-page { position: fixed; inset: 0; width: 100%; height: 100%; min-height: 0; display: block; overflow: hidden; background: #fff; }
   .label-print-toolbar { display: none; }
-  .label-print-canvas { min-height: 0; padding: 0; display: block; background: #fff; }
-  .label-print-sheet { width: 60mm; height: 50mm; aspect-ratio: auto; box-shadow: none; }
-  .label-print-sheet img { width: 60mm; height: 50mm; object-fit: contain; }
+  .label-print-canvas { width: 100%; height: 100%; min-height: 0; padding: 0; display: block; overflow: hidden; background: #fff; }
+  .label-print-sheet { width: 100%; height: 100%; aspect-ratio: auto; overflow: hidden; box-shadow: none; }
+  .label-print-sheet img { width: 100%; height: 100%; object-fit: contain; }
 }

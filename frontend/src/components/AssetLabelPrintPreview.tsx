@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 export function AssetLabelPrintPreview() {
+  const [imageLoaded, setImageLoaded] = useState(false)
   const [imageUnavailable, setImageUnavailable] = useState(false)
   const request = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
@@ -29,14 +30,19 @@ export function AssetLabelPrintPreview() {
       <div><span>标签打印预览</span><strong>{request.assetTag || `资产 ${request.assetId}`}</strong></div>
       <div>
         <a className="button ghost" href={imageUrl} download={filename}>下载 PNG</a>
-        <button className="button primary" type="button" disabled={imageUnavailable} onClick={() => window.print()}>打印标签</button>
+        <button className="button primary" type="button" disabled={!imageLoaded || imageUnavailable} onClick={() => window.print()}>{imageLoaded ? '打印标签' : '标签加载中…'}</button>
       </div>
     </header>
     <section className="label-print-canvas" aria-label="60×50毫米资产标签打印预览">
       <div className="label-print-sheet">
         {imageUnavailable
           ? <div className="label-print-error">资产标签加载失败，请确认登录状态后重试。</div>
-          : <img src={imageUrl} alt={`${request.assetTag || request.assetId} 资产标签打印预览`} onError={() => setImageUnavailable(true)} />}
+          : <img
+              src={imageUrl}
+              alt={`${request.assetTag || request.assetId} 资产标签打印预览`}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => { setImageLoaded(false); setImageUnavailable(true) }}
+            />}
       </div>
     </section>
   </main>

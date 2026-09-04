@@ -104,7 +104,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (authUser?.permissions.includes('ASSET_VIEW')) void load('')
+    if (!isLabelPrintPage && authUser?.permissions.includes('ASSET_VIEW')) void load('')
   }, [authUser])
 
   useEffect(() => {

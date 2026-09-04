@@ -76,18 +76,151 @@ docker system prune --volumes
 - CSV 导入前预览和校验，确认后再写入数据库
 - 导出当前资产数据
 
-## 目录结构
+## 目录结构与文件夹说明
+
+### 目录总览
 
 ```text
 asset-management/
-├── backend/                    Java Spring Boot 后端
-├── frontend/                   React 前端
-├── scripts/                    部署、备份和定时任务脚本
-├── compose.yaml                生产环境容器编排
+├── .git/                       Git 仓库元数据和版本历史
+├── .pnpm-store/                项目专用的 pnpm 包缓存
+├── artifacts/                  页面设计、效果对比和视频参考帧
+├── backend/                    Java Spring Boot 后端工程
+│   ├── .mvn/                   Maven Wrapper 配置
+│   ├── data/                   本地开发使用的 H2 数据库文件
+│   ├── src/main/               后端业务源码和运行配置
+│   ├── src/test/               后端自动化测试
+│   └── target/                 Maven 编译、测试和打包产物
+├── deploy/                     宿主机部署配套配置
+│   └── systemd/                MySQL 定时备份服务和定时器
+├── frontend/                   React + TypeScript 前端工程
+│   ├── dist/                   Vite 生产构建产物
+│   ├── node_modules/           前端依赖安装目录
+│   └── src/                    前端源码
+├── node_modules/               pnpm 工作区根依赖和链接
+├── output/                     单次生成的输出文件
+│   └── pdf/                    资产标签 PDF 样例
+├── outputs/                    专项任务的成套输出和检查材料
+├── scripts/                    部署、备份和一次性维护脚本
+├── tmp/                        临时渲染和验证文件
+├── compose.yaml                生产环境 Docker Compose 编排
+├── pnpm-workspace.yaml         pnpm 工作区和缓存目录配置
+├── pnpm-lock.yaml              根工作区依赖锁定文件
 ├── .env.example                环境变量模板
 ├── DEPLOY_LINUX.md             Linux 部署详细说明
-└── README.md                   本文档
+└── README.md                   项目总说明
 ```
+
+### 根目录文件夹
+
+#### `.git/`
+
+Git 自动创建的仓库管理目录，保存提交历史、分支、标签、暂存区和远程仓库信息。日常通过 `git status`、`git diff`、`git log` 等命令使用，不要手工编辑或删除。删除后业务源码仍在，但项目会失去现有 Git 历史和版本管理能力。
+
+#### `.pnpm-store/`
+
+pnpm 的项目本地内容寻址缓存。`pnpm-workspace.yaml` 已将 `storeDir` 指向这里，目的是避免在 E 盘根目录或用户目录散落依赖缓存。执行 `pnpm install` 时会自动读取或创建；删除后不会丢失源码，但下次安装依赖需要重新生成。该目录已被 `.gitignore` 忽略，不需要上传服务器或提交 Git。
+
+#### `artifacts/`
+
+开发期间保存的界面截图、样式对比图和视频拆帧参考，例如登录页、资产列表、资产详情、用户管理效果以及 `video-reference/` 中的参考帧。它们用于视觉验收和回看，不参与前后端运行。确认不再需要这些设计证据后可以删除；当前已被 Git 忽略。
+
+#### `backend/`
+
+Java 21 + Spring Boot 后端工程，负责登录鉴权、用户权限、资产增删改查、编号生成、二维码标签、CSV 导入导出、审计日志、系统设置和数据库访问。生产部署时由 `backend/Dockerfile` 在容器中使用 Maven 构建并运行。
+
+主要子目录：
+
+- `.mvn/`：Maven Wrapper 的版本和下载配置，配合 `mvnw`、`mvnw.cmd` 使用，应保留并提交 Git。
+- `data/`：不使用生产配置时，本机开发环境产生的 H2 数据库，包括 `assets.mv.db` 和锁文件。它不是生产 MySQL 数据，也不应提交 Git；删除会清空本机 H2 测试数据。
+- `src/main/java/`：后端 Java 业务源码。
+  - `asset/`：资产、设备绑定、标签二维码、编号流水和 CSV 导入导出。
+  - `audit/`：登录和业务操作审计日志。
+  - `common/`：通用异常及统一接口处理。
+  - `config/`：安全、初始化和其他 Spring 配置。
+  - `lookup/`：公司、型号、分类、状态、位置等基础资料。
+  - `security/`：登录身份和权限相关逻辑。
+  - `setting/`：二维码基础地址等系统设置。
+  - `user/`：用户、密码和头像管理。
+- `src/main/resources/`：Spring Boot 配置文件；通用配置和生产 MySQL 配置位于这里。
+- `src/test/`：接口、初始化、导入、权限和标签生成的自动化测试。
+- `target/`：Maven 自动生成的 class、测试报告和 JAR 包。可以安全删除并通过构建重新生成，已被 Git 忽略。
+
+#### `deploy/`
+
+保存操作系统层面的部署辅助配置。目前 `deploy/systemd/` 中是每月 MySQL 备份的 systemd service 和 timer 模板，供 `scripts/install-monthly-backup-timer.sh` 安装到 Linux 宿主机。它不保存业务数据，应纳入 Git。
+
+#### `frontend/`
+
+React 19 + TypeScript + Vite 前端工程，负责登录、资产管理、二维码公开页面、标签打印预览、用户、日志和设置界面。生产构建后由 Nginx 提供静态页面，并把 `/api` 请求转发到后端。
+
+主要子目录：
+
+- `src/`：前端源代码。
+  - `components/`：页面、表单、弹窗、资产详情、打印预览等 React 组件。
+  - `types/`：前后端接口数据的 TypeScript 类型定义。
+  - `App.tsx`：前端主应用、页面状态和主要数据加载流程。
+  - `api.ts`：与后端 API 通信、CSRF 和文件下载封装。
+  - `styles.css`：全站页面、组件、响应式和打印样式。
+  - `main.tsx`：React 应用入口。
+- `node_modules/`：前端实际安装的依赖和 pnpm 链接。可以删除后通过 `pnpm install` 恢复，不应提交 Git 或复制到 Linux 生产目录。
+- `dist/`：执行 `pnpm build` 后生成的 HTML、JavaScript 和 CSS。可以重新构建，已被 Git 忽略；Docker 生产镜像会自行构建，不依赖本机旧 `dist`。
+
+#### `node_modules/`
+
+pnpm 工作区根目录的依赖和软链接，供根工作区管理前端依赖。它不是业务源码，可以通过 `pnpm install` 重新生成，已被 Git 忽略。不要手工修改里面的第三方代码。
+
+#### `output/`
+
+保存单次工具任务生成的最终输出。目前 `output/pdf/` 中是 60×50 毫米资产标签 PDF 样例。它不参与应用运行，确认样例不再需要后可以删除，已被 Git 忽略。
+
+#### `outputs/`
+
+保存需要成组留存的专项工作结果。目前包含资产导入 CSV/XLSX、生成脚本、检查记录和预览图，用于复核某一次导入文件制作过程。它不参与生产运行，已被 Git 忽略；删除前应先确认其中的待确认导入文件是否还要使用。
+
+#### `scripts/`
+
+项目维护脚本目录，应保留并提交 Git：
+
+- `deploy-linux.sh`：检查环境变量，构建并启动前端、后端和 MySQL，等待服务健康。
+- `backup-mysql.sh`：导出、压缩并校验 MySQL 备份，按保留策略清理旧备份。
+- `install-monthly-backup-timer.sh`：在 Linux 上安装每月自动备份的 systemd 定时任务。
+- `renumber-test-asset-tags-20260901.sql`：仅供指定测试数据重新编号的一次性 SQL，不应在生产数据库随意执行。
+
+#### `tmp/`
+
+工具运行时使用的临时目录。目前 `tmp/pdfs/` 保存 PDF 渲染检查图片。它不参与应用运行，可以删除并重新生成，已被 Git 忽略。
+
+### 删除、用途与再次使用规则
+
+| 文件夹 | 类型和用途 | 能否删除 | 删除后的影响 | 下次是否还会用、如何恢复 |
+|---|---|---|---|---|
+| `.git/` | Git 版本历史、分支和回滚依据 | **绝对不要删除** | 项目源码仍在，但所有本地提交历史、分支和版本追踪能力会丢失 | Git 每次提交和回滚都会使用，不能靠安装依赖恢复 |
+| `.pnpm-store/` | pnpm 下载的软件包缓存，供两个 `node_modules` 复用 | **可以删除** | 不影响源码和业务数据，但下一次安装依赖会重新下载，速度更慢且需要网络 | 执行 `pnpm install` 时自动重新创建；磁盘空间够时建议保留 |
+| `artifacts/` | 页面截图、设计对比图和视频参考帧 | **按需删除** | 不影响系统运行，但会失去以前的视觉设计和验收参考 | 程序不会自动恢复；以后做界面对比可能还会用，确认无价值后再删 |
+| `backend/` | Spring Boot 后端源码、测试和构建配置 | **不能整体删除** | 后端无法构建，资产、用户、权限和接口全部无法运行 | 开发、测试和生产构建都会使用，必须保留 |
+| `backend/.mvn/` | Maven Wrapper 配置 | **不建议删除** | `mvnw` 可能无法自动下载和确定 Maven 版本 | 本机或构建机使用 Maven Wrapper 时会用，随源码保留 |
+| `backend/data/` | 本机开发环境的 H2 数据库 | **谨慎删除** | 不影响生产 MySQL，但本机调试创建的资产和用户会丢失 | 本地后端再次启动会生成空数据库；想保留本机测试数据就不要删 |
+| `backend/src/` | 后端正式源码和自动化测试 | **绝对不要删除** | 后端项目失去业务代码或测试 | 每次开发和构建都使用，必须提交 Git |
+| `backend/target/` | Maven 编译结果、JAR 和测试报告缓存 | **可以删除** | 不影响源码；现有 JAR 和测试报告会消失 | 执行 `mvn package` 或 `mvn test` 自动重新生成；排查近期测试问题时可暂时保留 |
+| `deploy/` | Linux systemd 备份任务配置 | **不建议删除** | 不影响本机开发，但新服务器无法按文档安装自动备份任务 | 首次部署或重新安装备份定时器时使用，必须提交 Git |
+| `frontend/` | React 前端源码、构建配置和 Nginx 配置 | **不能整体删除** | Web 页面无法构建和部署 | 开发和生产构建都会使用，必须保留 |
+| `frontend/src/` | 前端页面、组件、接口、类型和样式源码 | **绝对不要删除** | 登录、资产页面和打印页面等前端功能丢失 | 每次前端开发和构建都使用，必须提交 Git |
+| `frontend/dist/` | Vite 生成的生产静态文件 | **可以删除** | 如果本机正直接使用该目录提供页面，页面会暂时不可用；不影响源码 | 执行 `pnpm build` 自动重建；Docker 构建会在镜像中重新生成 |
+| `frontend/node_modules/` | 前端依赖及 pnpm 链接 | **可以删除** | 前端暂时无法构建或启动开发服务 | 执行 `pnpm install` 恢复；近期还要开发时保留可节省安装时间 |
+| `node_modules/` | pnpm 工作区根依赖和命令链接 | **可以删除** | 工作区的构建命令可能暂时无法运行 | 执行 `pnpm install` 恢复；它与 `frontend/node_modules/` 都不是源码 |
+| `output/` | 当前保存的单次正式输出，例如标签 PDF 样例 | **按需删除** | 不影响系统，只会失去已生成的样例 | 不一定能原样自动恢复；确认样例不再需要后可以删除 |
+| `outputs/` | 某项任务的完整输出，包括待确认导入表、脚本和预览图 | **谨慎删除** | 不影响系统运行，但可能丢失尚未导入或需要复核的业务文件 | 程序不会自动恢复；先确认 CSV/XLSX 已处理或另有备份 |
+| `scripts/` | 上线、MySQL 备份和测试数据维护脚本 | **不要删除** | 自动部署、备份和维护流程无法按文档执行 | 上线和运维会反复使用，必须提交 Git；其中重编号 SQL 只能用于指定测试数据 |
+| `tmp/` | PDF 渲染、截图检查等临时缓存 | **可以删除** | 不影响源码、数据库和生产服务 | 相关工具下次运行时会重新生成；通常是最适合清理的目录 |
+
+快速判断：
+
+- **可以放心清理**：`.pnpm-store/`、两个 `node_modules/`、`backend/target/`、`frontend/dist/`、`tmp/`。清理后需要重新安装依赖或重新构建，近期还要开发时保留缓存会更省时间。
+- **确认内容后再清理**：`artifacts/`、`output/`、`outputs/`、`backend/data/`。它们不是正式源码，但里面可能有无法自动恢复的参考材料、导入文件或本机测试数据。
+- **不要删除**：`.git/`、`backend/src/`、`frontend/src/`、`deploy/`、`scripts/` 以及前后端的 Dockerfile、配置文件和依赖清单。
+
+> 生产资产、用户、日志和设置不在上述源码目录中，而是保存在 Docker 命名卷 `asset-management_mysql_data`。删除源码中的 `backend/data/` 不会删除生产 MySQL；反过来，删除 Docker 数据卷会造成生产数据丢失。
 
 ## 首次部署到 Linux
 
