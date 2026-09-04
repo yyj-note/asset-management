@@ -98,15 +98,15 @@ export function PublicAssetPage({ qrToken }: Props) {
   if (!asset) return <main className="public-asset-state"><div><span className="spinner" /><h1>正在读取设备信息</h1><p>请稍候…</p></div></main>
 
   const deviceFields = asset.assetProfile === 'COMPUTER' ? [
-    ['电脑型号', value(asset.computerModel)], ['厂家序列号', value(asset.manufacturerSerialNumber)],
+    ['电脑型号', value(asset.computerModel)],
     ['CPU', value(asset.cpu)], ['内存', value(asset.memory)],
     ['硬盘', value(asset.storage)], ['显卡', value(asset.graphicsCard)],
   ] : asset.assetProfile === 'DISPLAY' ? [
-    ['显示器型号', value(asset.computerModel)], ['厂家序列号', value(asset.manufacturerSerialNumber)],
+    ['显示器型号', value(asset.computerModel)],
     ['屏幕尺寸', value(asset.screenSize)], ['分辨率', value(asset.displayResolution)],
     ['显示接口', value(asset.displayInterface)], ['订单号', value(asset.orderNumber)],
   ] : [
-    ['设备型号', value(asset.computerModel)], ['厂家序列号', value(asset.manufacturerSerialNumber)],
+    ['设备型号', value(asset.computerModel)],
     ['订单号', value(asset.orderNumber)], ['设备模板', '普通设备'],
   ]
   const fields = [
@@ -116,6 +116,7 @@ export function PublicAssetPage({ qrToken }: Props) {
     ['存放位置', value(asset.location)], ['领用人', asset.checkedOut ? value(asset.assignedTo) : '暂未领用'],
   ]
   const boundAssets = asset.assetProfile === 'COMPUTER' ? asset.boundDisplays : asset.boundComputer ? [asset.boundComputer] : []
+  const images = asset.imageUrls?.length ? asset.imageUrls : asset.imageUrl ? [asset.imageUrl] : []
 
   return <main className="public-asset-page">
     <article className="public-asset-card">
@@ -125,7 +126,7 @@ export function PublicAssetPage({ qrToken }: Props) {
         <b className={`public-status ${stateTone(asset)}`}>{stateLabel(asset)}</b>
       </header>
 
-      {asset.imageUrl && <div className="public-asset-image"><img src={asset.imageUrl} alt={asset.name} /></div>}
+      {images.length > 0 && <div className="public-asset-gallery">{images.map((source, index) => <img src={source} alt={`${asset.name}图片${index + 1}`} key={`${source.slice(-24)}-${index}`} />)}</div>}
 
       <section className="public-asset-fields">
         {fields.map(([label, content]) => <div key={label}><span>{label}</span><strong>{content}</strong></div>)}

@@ -31,6 +31,7 @@ public record AssetResponse(
         boolean checkedOut,
         String assignedTo,
         String imageUrl,
+        List<String> imageUrls,
         String notes,
         List<AssetLinkResponse> boundDisplays,
         AssetLinkResponse boundComputer,
@@ -40,6 +41,9 @@ public record AssetResponse(
         LocalDateTime updatedAt
 ) {
     public static AssetResponse from(Asset asset) {
+        List<String> images = asset.getImageUrls().isEmpty()
+                ? asset.getImageUrl() == null || asset.getImageUrl().isBlank() ? List.of() : List.of(asset.getImageUrl())
+                : List.copyOf(asset.getImageUrls());
         return new AssetResponse(
                 asset.getId(), asset.getQrToken(), asset.getAssetTag(), asset.getName(), asset.getOwnershipDepartment(),
                 asset.getCpu(), asset.getMemory(), asset.getStorage(), asset.getGraphicsCard(),
@@ -48,7 +52,7 @@ public record AssetResponse(
                 LookupResponse.from(asset.getCompany()), LookupResponse.from(asset.getModel()),
                 LookupResponse.from(asset.getCategory()), LookupResponse.from(asset.getStatus()),
                 LookupResponse.from(asset.getLocation()), asset.getPurchasePrice(), asset.getCurrentValue(),
-                asset.isCheckedOut(), asset.getAssignedTo(), asset.getImageUrl(),
+                asset.isCheckedOut(), asset.getAssignedTo(), images.isEmpty() ? null : images.getFirst(), images,
                 asset.getNotes(),
                 asset.getBoundDisplays().stream().map(AssetLinkResponse::from).toList(),
                 asset.getBoundComputers().stream().findFirst().map(AssetLinkResponse::from).orElse(null),

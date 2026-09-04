@@ -30,6 +30,7 @@ public record AssetRequest(
         boolean checkedOut,
         @Size(max = 120) String assignedTo,
         String imageUrl,
+        @Size(max = 5, message = "资产图片最多上传5张") List<@NotBlank(message = "资产图片不能为空") String> imageUrls,
         @Size(max = 2000) String notes,
         List<Long> boundDisplayIds,
         Long boundComputerId,

@@ -77,7 +77,7 @@ public class LookupController {
 
     public record LookupRequest(
             @NotNull(message = "字典类型不能为空") LookupType type,
-            @NotBlank(message = "名称不能为空") @Size(max = 120, message = "名称不能超过120个字符") String name,
+            @NotBlank(message = "名称不能为空") @Size(max = 200, message = "名称不能超过200个字符") String name,
             AssetProfile assetProfile
     ) {}
 

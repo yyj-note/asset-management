@@ -83,7 +83,7 @@ public class AssetCsvImportService {
                     decimal(row.value("采购价格(元)"), row.rowNumber(), "采购价格(元)"),
                     decimal(row.value("当前价值(元)"), row.rowNumber(), "当前价值(元)"),
                     isCheckedOutStatus(row.value("资产状态*")), clean(row.value("领用人")),
-                    clean(row.value("图片地址")), clean(row.value("备注")),
+                    clean(row.value("图片地址")), null, clean(row.value("备注")),
                     List.of(), null,
                     relatedDevices(relatedDevicesValue(row), row.rowNumber()), List.of());
             Set<ConstraintViolation<AssetRequest>> violations = validator.validate(request);

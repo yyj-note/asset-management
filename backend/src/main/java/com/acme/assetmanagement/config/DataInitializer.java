@@ -6,6 +6,8 @@ import com.acme.assetmanagement.lookup.LookupRepository;
 import com.acme.assetmanagement.lookup.AssetProfile;
 import com.acme.assetmanagement.lookup.LookupType;
 import com.acme.assetmanagement.lookup.LookupValue;
+import com.acme.assetmanagement.setting.SystemSetting;
+import com.acme.assetmanagement.setting.SystemSettingRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,12 +17,17 @@ import java.util.UUID;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
+    private static final String MANAGED_SUGGESTIONS_INITIALIZED = "MANAGED_SUGGESTIONS_V1";
+
     private final LookupRepository lookupRepository;
     private final AssetRepository assetRepository;
+    private final SystemSettingRepository systemSettingRepository;
 
-    public DataInitializer(LookupRepository lookupRepository, AssetRepository assetRepository) {
+    public DataInitializer(LookupRepository lookupRepository, AssetRepository assetRepository,
+                           SystemSettingRepository systemSettingRepository) {
         this.lookupRepository = lookupRepository;
         this.assetRepository = assetRepository;
+        this.systemSettingRepository = systemSettingRepository;
     }
 
     @Override
@@ -31,6 +38,7 @@ public class DataInitializer implements CommandLineRunner {
             ensureFixedStatus("已报废");
             normalizeCategoryProfiles();
             normalizeLegacyUsageState();
+            initializeManagedSuggestions();
             return;
         }
 
@@ -64,6 +72,7 @@ public class DataInitializer implements CommandLineRunner {
         asset.setRequestable(false);
         asset.setNotes("这是系统首次启动时生成的演示资产，可直接编辑或删除。");
         assetRepository.save(asset);
+        initializeManagedSuggestions();
     }
 
     private void migrateLegacyAssetNumbers() {
@@ -122,6 +131,23 @@ public class DataInitializer implements CommandLineRunner {
                 lookupRepository.save(value);
             }
         }
+    }
+
+    private void initializeManagedSuggestions() {
+        if (systemSettingRepository.existsById(MANAGED_SUGGESTIONS_INITIALIZED)) return;
+        for (Asset asset : assetRepository.findAll()) {
+            rememberSuggestion(LookupType.ASSET_NAME, asset.getName());
+            rememberSuggestion(LookupType.DEPARTMENT, asset.getOwnershipDepartment());
+            rememberSuggestion(LookupType.GRAPHICS_CARD, asset.getGraphicsCard());
+        }
+        systemSettingRepository.save(new SystemSetting(MANAGED_SUGGESTIONS_INITIALIZED, "true"));
+    }
+
+    private void rememberSuggestion(LookupType type, String name) {
+        if (name == null || name.isBlank()) return;
+        String cleanName = name.trim();
+        lookupRepository.findByTypeAndNameIgnoreCase(type, cleanName)
+                .orElseGet(() -> lookupRepository.save(new LookupValue(type, cleanName)));
     }
 
     private LookupValue save(LookupType type, String name) {

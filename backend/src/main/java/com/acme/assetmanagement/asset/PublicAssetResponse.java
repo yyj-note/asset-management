@@ -25,12 +25,16 @@ public record PublicAssetResponse(
         boolean checkedOut,
         String assignedTo,
         String imageUrl,
+        List<String> imageUrls,
         List<PublicAssetLink> boundDisplays,
         PublicAssetLink boundComputer,
         List<PublicRelatedDevice> relatedDevices,
         LocalDateTime updatedAt
 ) {
     public static PublicAssetResponse from(Asset asset) {
+        List<String> images = asset.getImageUrls().isEmpty()
+                ? asset.getImageUrl() == null || asset.getImageUrl().isBlank() ? List.of() : List.of(asset.getImageUrl())
+                : List.copyOf(asset.getImageUrls());
         List<PublicRelatedDevice> devices = new java.util.ArrayList<>();
         asset.getRelatedDevices().forEach(device -> devices.add(new PublicRelatedDevice(
                 device.getName(), device.getModel(), device.getSerialNumber(), device.getSpecification(), device.getQuantity()
@@ -50,7 +54,7 @@ public record PublicAssetResponse(
                         ? "GENERAL" : asset.getCategory().getAssetProfile().name(),
                 asset.getStatus() == null ? null : asset.getStatus().getName(),
                 asset.getLocation() == null ? null : asset.getLocation().getName(),
-                asset.isCheckedOut(), asset.getAssignedTo(), asset.getImageUrl(),
+                asset.isCheckedOut(), asset.getAssignedTo(), images.isEmpty() ? null : images.getFirst(), images,
                 asset.getBoundDisplays().stream().map(PublicAssetLink::from).toList(),
                 asset.getBoundComputers().stream().findFirst().map(PublicAssetLink::from).orElse(null),
                 List.copyOf(devices), asset.getUpdatedAt()

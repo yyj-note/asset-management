@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Asset } from '../types'
-import { CloneIcon, EditIcon, ReturnIcon, TrashIcon } from './Icons'
+import { CloneIcon, EditIcon, EyeIcon, ReturnIcon, TrashIcon } from './Icons'
 import { AssetImageLightbox } from './AssetImageLightbox'
 
 interface Props {
@@ -20,38 +20,40 @@ const time = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12
 const isMaintenance = (asset: Asset) => asset.status.name.includes('维修') || asset.status.name.includes('维护')
 export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onEdit, onClone, onReturn, onDelete }: Props) {
   const [qrUnavailable, setQrUnavailable] = useState(false)
-  const [imagePreviewOpen, setImagePreviewOpen] = useState(false)
-  useEffect(() => { setQrUnavailable(false); setImagePreviewOpen(false) }, [asset?.id])
+  const [imagePreviewIndex, setImagePreviewIndex] = useState<number | null>(null)
+  useEffect(() => { setQrUnavailable(false); setImagePreviewIndex(null) }, [asset?.id])
   if (!asset) return null
   const maintenance = isMaintenance(asset)
   const scrapped = asset.status.name.includes('报废')
   const state = scrapped ? '已报废' : maintenance ? '维护中' : asset.checkedOut ? '已经领出' : '当前可用'
+  const stateClass = scrapped ? 'scrapped' : maintenance ? 'maintenance' : asset.checkedOut ? 'checked-out' : 'available'
   const profile = asset.category.assetProfile || 'GENERAL'
   const relatedItems = [
     ...(asset.relatedDevices || []),
     ...(asset.accessories || []).map((item) => ({ name: item.name, model: '', serialNumber: '', orderNumber: '', specification: item.specification, quantity: item.quantity })),
   ]
+  const images = asset.imageUrls?.length ? asset.imageUrls : asset.imageUrl ? [asset.imageUrl] : []
   const identityRows = [
     ['资产名称', asset.name, '资产分类', asset.category.name],
   ]
-  const deviceRows = profile === 'COMPUTER' ? [
-    ['电脑型号', asset.model.name, '厂家序列号', asset.manufacturerSerialNumber || '—'],
-    ['CPU', asset.cpu || '—', '内存', asset.memory || '—'],
-    ['硬盘', asset.storage || '—', '显卡', asset.graphicsCard || '—'],
-  ] : profile === 'DISPLAY' ? [
-    ['显示器型号', asset.model.name, '厂家序列号', asset.manufacturerSerialNumber || '—'],
-    ['屏幕尺寸', asset.screenSize || '—', '分辨率', asset.displayResolution || '—'],
-    ['显示接口', asset.displayInterface || '—', '订单号', asset.orderNumber || '—'],
+  const computerSpecs = [
+    ['电脑型号', asset.model.name],
+    ['CPU', asset.cpu || '—'],
+    ['内存', asset.memory || '—'],
+    ['硬盘', asset.storage || '—'],
+    ['显卡', asset.graphicsCard || '—'],
+  ]
+  const deviceRows = profile === 'COMPUTER' ? [] : profile === 'DISPLAY' ? [
+    ['显示器型号', asset.model.name, '屏幕尺寸', asset.screenSize || '—'],
+    ['分辨率', asset.displayResolution || '—', '显示接口', asset.displayInterface || '—'],
   ] : [
-    ['设备型号', asset.model.name, '厂家序列号', asset.manufacturerSerialNumber || '—'],
-    ['订单号', asset.orderNumber || '—', '设备模板', '普通设备'],
+    ['设备型号', asset.model.name, '设备类型', '普通设备'],
   ]
   const parameterRows = [
     ...identityRows,
     ...deviceRows,
     ['所属公司', asset.company.name, '归属部门', asset.ownershipDepartment || '未设置'],
-    ['存放位置', asset.location.name, '资产分类', asset.category.name],
-    ['领用情况', asset.checkedOut ? `${state} · ${asset.assignedTo || '未填写领用人'}` : state, '当前状态', state],
+    ['存放位置', asset.location.name, '领用情况', asset.checkedOut ? `${state} · ${asset.assignedTo || '未填写领用人'}` : state],
     ['创建时间', time(asset.createdAt), '更新时间', time(asset.updatedAt)],
     ['采购价格', money(asset.purchasePrice), '当前价值', money(asset.currentValue)],
   ]
@@ -61,11 +63,29 @@ export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onE
     <div className="record-card-outer"><article className="record-card">
       <div className="record-scroll-body" tabIndex={0} aria-label="资产详情内容">
         <div className="record-summary-grid">
-          <div className="record-topline">
-            {qrUnavailable
-              ? <div className="asset-label-download unavailable"><strong>资产标签未配置</strong><span>请联系超级管理员前往设置</span></div>
-              : <a className="asset-label-download" href={`/label-print?assetId=${asset.id}&assetTag=${encodeURIComponent(asset.assetTag)}`} target="_blank" rel="noopener" title="点击预览并打印资产标签"><img src={`/api/assets/${asset.id}/qr`} onError={() => setQrUnavailable(true)} alt={`${asset.assetTag} 资产标签`} /></a>}
-          </div>
+          <header className="record-summary-head">
+            <div className="record-summary-title">
+              <span className="record-kicker">ASSET RECORD</span>
+              <div><h2>{asset.name}</h2><span className={`status-pill ${stateClass}`}>{state}</span></div>
+              <p>资产编号 <strong>{asset.assetTag}</strong></p>
+            </div>
+            <a className="record-label-action" href={`/label-print?assetId=${asset.id}&assetTag=${encodeURIComponent(asset.assetTag)}`} target="_blank" rel="noopener" title="在新页面中查看并打印资产标签">
+              <span className="record-label-action-icon"><EyeIcon /></span>
+              <span>查看/打印资产标签</span>
+              <span className={`record-label-preview ${qrUnavailable ? 'unavailable' : ''}`} aria-hidden="true">
+                {qrUnavailable
+                  ? <span className="record-label-preview-message"><strong>资产标签未配置</strong><small>请联系超级管理员前往设置</small></span>
+                  : <><span className="record-label-preview-shell"><img src={`/api/assets/${asset.id}/qr`} onError={() => setQrUnavailable(true)} alt="" /></span><small>点击进入打印预览</small></>}
+              </span>
+            </a>
+          </header>
+
+          {profile === 'COMPUTER' && <section className="record-computer-config" aria-label="电脑核心配置">
+            <div className="record-config-heading"><span>COMPUTER PROFILE</span><strong>电脑配置</strong></div>
+            <div className="record-config-grid">
+              {computerSpecs.map(([label, value]) => <div className="record-config-item" key={label}><span>{label}</span><strong title={value}>{value}</strong></div>)}
+            </div>
+          </section>}
 
           <div className="record-table">
             <div className="record-table-head"><span>参数名称</span><strong>参数内容</strong><span>参数名称</span><strong>参数内容</strong></div>
@@ -93,8 +113,8 @@ export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onE
 
         <div className="record-bottom record-media-panel">
           <div className="record-notes-media">
-            {asset.imageUrl
-              ? <div className="record-image-shell"><button className="record-image-preview" title="点击放大图片" onClick={() => setImagePreviewOpen(true)}><img src={asset.imageUrl} alt={asset.name} /><span>点击放大</span></button></div>
+            {images.length
+              ? <div className="record-image-gallery">{images.map((source, index) => <button className="record-image-preview" title={`查看第${index + 1}张图片`} onClick={() => setImagePreviewIndex(index)} key={`${source.slice(-24)}-${index}`}><img src={source} alt={`${asset.name}图片${index + 1}`} /><span>{index === 0 ? '封面' : `${index + 1} / ${images.length}`}</span></button>)}</div>
               : <div className="record-placeholder record-large-placeholder">{asset.name.slice(0, 1)}</div>}
             <div className="record-notes"><span>备注</span><p>{asset.notes || '暂无备注'}</p></div>
           </div>
@@ -110,7 +130,7 @@ export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onE
           <button className="button primary" onClick={onClose}>返回资产列表</button>
         </div>
       </div>
-      <AssetImageLightbox asset={imagePreviewOpen ? asset : null} onClose={() => setImagePreviewOpen(false)} />
+      <AssetImageLightbox asset={imagePreviewIndex == null ? null : asset} initialIndex={imagePreviewIndex ?? 0} onClose={() => setImagePreviewIndex(null)} />
     </article></div>
   </section>
 }

@@ -26,12 +26,6 @@ const filterLabels: Record<AssetFilter, string> = {
 const isLabelPrintPage = window.location.pathname.replace(/\/+$/, '') === '/label-print'
 const isMaintenance = (asset: Asset) => asset.status.name.includes('维修') || asset.status.name.includes('维护')
 const isScrapped = (asset: Asset) => asset.status.name.includes('报废')
-const uniqueSuggestions = (values: Array<string | null>) => Array.from(new Map(values
-  .map((value) => value?.trim())
-  .filter((value): value is string => Boolean(value))
-  .map((value) => [value.toLocaleLowerCase('zh-CN'), value])).values())
-  .sort((left, right) => left.localeCompare(right, 'zh-CN'))
-
 export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authChecking, setAuthChecking] = useState(true)
@@ -210,10 +204,6 @@ export default function App() {
     if (filter === 'scrapped') return isScrapped(asset)
     return true
   }), [assets, categoryFilter, filter])
-  const assetNameSuggestions = useMemo(() => uniqueSuggestions(suggestionAssets.map((asset) => asset.name)), [suggestionAssets])
-  const graphicsCardSuggestions = useMemo(() => uniqueSuggestions(suggestionAssets.map((asset) => asset.graphicsCard)), [suggestionAssets])
-  const departmentSuggestions = useMemo(() => uniqueSuggestions(suggestionAssets.map((asset) => asset.ownershipDepartment)), [suggestionAssets])
-
   const saveAsset = async (payload: AssetPayload) => {
     setSaving(true)
     try {
@@ -353,7 +343,7 @@ export default function App() {
   </section>
 
   const assetPage = page.name === 'form'
-    ? <AssetForm key={`${page.clone ? 'clone' : 'form'}-${page.asset?.id ?? 'new'}`} asset={page.asset} clone={page.clone} lookups={lookups} bindableAssets={suggestionAssets} saving={saving} createdLookup={createdLookup} assetNameSuggestions={assetNameSuggestions} graphicsCardSuggestions={graphicsCardSuggestions} departmentSuggestions={departmentSuggestions} onCancel={returnToPreviousView} onSave={saveAsset} onDeleteLookup={deleteLookup} onNewLookup={(type) => { setCreatedLookup(null); setLookupType(type) }} />
+    ? <AssetForm key={`${page.clone ? 'clone' : 'form'}-${page.asset?.id ?? 'new'}`} asset={page.asset} clone={page.clone} lookups={lookups} bindableAssets={suggestionAssets} saving={saving} createdLookup={createdLookup} onCancel={returnToPreviousView} onSave={saveAsset} onDeleteLookup={deleteLookup} onNewLookup={(type) => { setCreatedLookup(null); setLookupType(type) }} />
     : page.name === 'detail'
       ? <AssetDetail asset={page.asset} canEdit={hasPermission('ASSET_EDIT')} canReturn={hasPermission('ASSET_RETURN')} canDelete={hasPermission('ASSET_DELETE')} onClose={returnToPreviousView} onEdit={(asset) => showView('assets', { name: 'form', asset })} onClone={(asset) => showView('assets', { name: 'form', asset, clone: true })} onReturn={setReturnTarget} onDelete={(asset) => void deleteAsset(asset)} />
       : listPage

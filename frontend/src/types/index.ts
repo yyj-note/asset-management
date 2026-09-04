@@ -1,4 +1,4 @@
-export type LookupType = 'COMPANY' | 'MODEL' | 'CPU' | 'CATEGORY' | 'STATUS' | 'LOCATION'
+export type LookupType = 'COMPANY' | 'ASSET_NAME' | 'DEPARTMENT' | 'MODEL' | 'CPU' | 'GRAPHICS_CARD' | 'CATEGORY' | 'STATUS' | 'LOCATION'
 export type AssetProfile = 'COMPUTER' | 'DISPLAY' | 'GENERAL'
 
 export interface LookupValue {
@@ -34,6 +34,7 @@ export interface Asset {
   checkedOut: boolean
   assignedTo: string | null
   imageUrl: string | null
+  imageUrls: string[]
   notes: string | null
   boundDisplays: AssetLink[]
   boundComputer: AssetLink | null
@@ -67,6 +68,7 @@ export interface AssetPayload {
   checkedOut: boolean
   assignedTo: string
   imageUrl: string
+  imageUrls: string[]
   notes: string
   boundDisplayIds: number[]
   boundComputerId: number | null
@@ -119,6 +121,7 @@ export interface PublicAsset {
   checkedOut: boolean
   assignedTo: string | null
   imageUrl: string | null
+  imageUrls: string[]
   boundDisplays: PublicAssetLink[]
   boundComputer: PublicAssetLink | null
   relatedDevices: PublicRelatedDevice[]
@@ -244,8 +247,11 @@ export interface CsvImportResult { importedCount: number; createdLookupCount: nu
 
 export const lookupLabels: Record<LookupType, string> = {
   COMPANY: '公司',
+  ASSET_NAME: '资产名称',
+  DEPARTMENT: '归属部门',
   MODEL: '设备型号',
   CPU: 'CPU',
+  GRAPHICS_CARD: '显卡',
   CATEGORY: '分类',
   STATUS: '状态',
   LOCATION: '位置',

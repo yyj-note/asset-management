@@ -90,6 +90,13 @@ public class Asset {
     @Lob
     private String imageUrl;
 
+    @ElementCollection
+    @CollectionTable(name = "asset_images", joinColumns = @JoinColumn(name = "asset_id"))
+    @OrderColumn(name = "sort_order")
+    @Lob
+    @Column(name = "image_url", nullable = false)
+    private List<String> imageUrls = new ArrayList<>();
+
     @Column(length = 2000)
     private String notes;
 
@@ -184,6 +191,8 @@ public class Asset {
     public void setRequestable(boolean requestable) { this.requestable = requestable; }
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public List<String> getImageUrls() { return imageUrls; }
+    public void setImageUrls(List<String> imageUrls) { this.imageUrls.clear(); this.imageUrls.addAll(imageUrls); }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     public List<RelatedDevice> getRelatedDevices() { return relatedDevices; }

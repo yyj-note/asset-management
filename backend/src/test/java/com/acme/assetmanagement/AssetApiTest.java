@@ -183,6 +183,21 @@ class AssetApiTest {
     }
 
     @Test
+    void manuallyDeletesAssetNameSuggestionWithoutDeletingExistingAsset() throws Exception {
+        var asset = assetRepository.findAll().stream()
+                .filter(item -> "202609010001".equals(item.getAssetTag()))
+                .findFirst().orElseThrow();
+        var suggestion = lookupRepository.findByTypeAndNameIgnoreCase(LookupType.ASSET_NAME, asset.getName())
+                .orElseThrow();
+
+        mockMvc.perform(delete("/api/lookups/{id}", suggestion.getId()).with(assetUser()).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertTrue(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.ASSET_NAME, asset.getName()).isEmpty());
+        assertEquals(asset.getName(), assetRepository.findById(asset.getId()).orElseThrow().getName());
+    }
+
+    @Test
     void protectsSystemStatusOptionsFromCreationAndDeletion() throws Exception {
         assertTrue(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "已报废").isPresent());
 
@@ -238,7 +253,8 @@ class AssetApiTest {
                 {"assetTag":"202609010001","name":"更新后的资产","companyId":%d,"modelId":%d,
                  "modelName":"ThinkPad T14 Gen 5","categoryId":%d,"statusId":%d,"locationId":%d,
                  "cpu":"i7","memory":"32G","storage":"1T","checkedOut":false,
-                 "imageUrl":"data:image/png;base64,aGVsbG8=","notes":"更新测试",
+                 "imageUrl":"data:image/png;base64,bGVnYWN5",
+                 "imageUrls":["data:image/png;base64,aW1hZ2Ux","data:image/png;base64,aW1hZ2Uy"],"notes":"更新测试",
                  "relatedDevices":[{"name":"鼠标","model":"M90","specification":"USB","quantity":1}],
                  "accessories":[]}
                 """.formatted(companyId, modelId, categoryId, statusId, locationId);
@@ -247,6 +263,8 @@ class AssetApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("更新后的资产"))
+                .andExpect(jsonPath("$.imageUrl").value("data:image/png;base64,aW1hZ2Ux"))
+                .andExpect(jsonPath("$.imageUrls.length()").value(2))
                 .andExpect(jsonPath("$.relatedDevices[0].name").value("鼠标"))
                 .andExpect(jsonPath("$.accessories").isEmpty());
 
@@ -257,6 +275,14 @@ class AssetApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(changedNumber))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("编号不能修改")));
+
+        String tooManyImages = body.replace(
+                "\"data:image/png;base64,aW1hZ2Ux\",\"data:image/png;base64,aW1hZ2Uy\"",
+                "\"1\",\"2\",\"3\",\"4\",\"5\",\"6\"");
+        mockMvc.perform(put("/api/assets/{id}", assetId).with(assetUser()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(tooManyImages))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("资产图片最多上传5张"));
     }
 
     @Test

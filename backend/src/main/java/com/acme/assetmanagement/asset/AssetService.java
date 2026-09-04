@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -60,6 +61,7 @@ public class AssetService {
         validateUnique(request, null, assetTag);
         Asset asset = new Asset();
         apply(asset, request);
+        rememberSuggestions(asset);
         asset.setAssetTag(assetTag);
         Asset saved = assetRepository.save(asset);
         applyBindings(saved, request.boundDisplayIds(), request.boundComputerId());
@@ -73,12 +75,16 @@ public class AssetService {
 
     public AssetResponse update(Long id, AssetRequest request) {
         Asset asset = findAsset(id);
+        String previousName = asset.getName();
+        String previousDepartment = asset.getOwnershipDepartment();
+        String previousGraphicsCard = asset.getGraphicsCard();
         Map<String, Object> before = snapshot(asset);
         if (!asset.getAssetTag().equals(request.assetTag().trim())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "已创建资产的编号不能修改，以免与已打印标签不一致");
         }
         validateUnique(request, id, request.assetTag().trim());
         apply(asset, request);
+        rememberChangedSuggestions(previousName, previousDepartment, previousGraphicsCard, asset);
         applyBindings(asset, request.boundDisplayIds(), request.boundComputerId());
         Asset saved = assetRepository.save(asset);
         auditLogService.success(AuditAction.ASSET_UPDATE, "ASSET", saved.getId(), assetLabel(saved),
@@ -229,7 +235,12 @@ public class AssetService {
         asset.setAssignedTo(checkedOut ? clean(request.assignedTo()) : null);
         // “开放申领”功能已经从产品中移除；保留数据库列仅用于兼容已有数据。
         asset.setRequestable(false);
-        asset.setImageUrl(clean(request.imageUrl()));
+        List<String> images = request.imageUrls() == null
+                ? clean(request.imageUrl()) == null ? List.of() : List.of(request.imageUrl().trim())
+                : request.imageUrls().stream().map(this::clean).filter(Objects::nonNull).distinct().toList();
+        if (images.size() > 5) throw new ApiException(HttpStatus.BAD_REQUEST, "资产图片最多上传5张");
+        asset.setImageUrls(images);
+        asset.setImageUrl(images.isEmpty() ? null : images.getFirst());
         asset.setNotes(clean(request.notes()));
         asset.setRelatedDevices(request.relatedDevices() == null ? List.of() : request.relatedDevices().stream()
                 .map(device -> new RelatedDevice(device.name().trim(), clean(device.model()), clean(device.serialNumber()),
@@ -339,6 +350,30 @@ public class AssetService {
         if (cpu == null) return;
         lookupRepository.findByTypeAndNameIgnoreCase(LookupType.CPU, cpu)
                 .orElseGet(() -> lookupRepository.save(new LookupValue(LookupType.CPU, cpu)));
+    }
+
+    private void rememberSuggestions(Asset asset) {
+        rememberSuggestion(LookupType.ASSET_NAME, asset.getName());
+        rememberSuggestion(LookupType.DEPARTMENT, asset.getOwnershipDepartment());
+        rememberSuggestion(LookupType.GRAPHICS_CARD, asset.getGraphicsCard());
+    }
+
+    private void rememberChangedSuggestions(String previousName, String previousDepartment,
+                                              String previousGraphicsCard, Asset asset) {
+        if (!sameText(previousName, asset.getName())) rememberSuggestion(LookupType.ASSET_NAME, asset.getName());
+        if (!sameText(previousDepartment, asset.getOwnershipDepartment())) rememberSuggestion(LookupType.DEPARTMENT, asset.getOwnershipDepartment());
+        if (!sameText(previousGraphicsCard, asset.getGraphicsCard())) rememberSuggestion(LookupType.GRAPHICS_CARD, asset.getGraphicsCard());
+    }
+
+    private void rememberSuggestion(LookupType type, String value) {
+        String name = clean(value);
+        if (name == null) return;
+        lookupRepository.findByTypeAndNameIgnoreCase(type, name)
+                .orElseGet(() -> lookupRepository.save(new LookupValue(type, name)));
+    }
+
+    private boolean sameText(String left, String right) {
+        return Objects.equals(clean(left), clean(right));
     }
 
     private boolean isCheckedOutStatus(LookupValue status) {

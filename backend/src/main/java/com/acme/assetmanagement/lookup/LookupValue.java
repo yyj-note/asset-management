@@ -13,7 +13,7 @@ public class LookupValue {
     @Column(name = "lookup_type", nullable = false, length = 30)
     private LookupType type;
 
-    @Column(nullable = false, length = 120)
+    @Column(nullable = false, length = 200)
     private String name;
 
     @Enumerated(EnumType.STRING)
