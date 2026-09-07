@@ -9,6 +9,53 @@
 ```bash
 cd /opt/asset-management
 ./scripts/deploy-linux.sh
+cd /opt
+mv asset-management asset-management-backup
+git clone https://github.com/yyj-note/asset-management.git /opt/asset-management
+cd /opt/asset-management
+git pull origin main
+#添加github hosts
+curl -L https://raw.hellogithub.com/hosts -o /root/github-hosts
+cat /root/github-hosts >> /etc/hosts
+curl -I https://github.com
+```
+
+## windows 连接github方式
+
+```
+# 服务器创建裸 Git 仓库
+mkdir -p /opt/git
+git init --bare /opt/git/asset-management.git
+
+# Windows 进入本地项目
+cd E:\projects\asset-management
+
+# Windows 添加服务器远程仓库
+git remote add server root@172.168.30.202:/opt/git/asset-management.git
+
+# 查看远程仓库
+git remote -v
+
+# Windows 第一次推送到服务器
+git push server main
+
+# 服务器克隆到实际运行目录
+cd /opt
+git clone /opt/git/asset-management.git asset-management
+
+# Windows 后续开发完成后提交
+git add .
+git commit -m "更新功能"
+
+# 推送到 GitHub
+git push origin main
+
+# 推送到内网服务器
+git push server main
+
+# 服务器拉取最新代码
+cd /opt/asset-management
+git pull
 ```
 
 也可以直接使用 Compose：

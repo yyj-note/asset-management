@@ -11,6 +11,21 @@
 - 不要为了优化或代码美观擅自重构无关代码。
 - 不要修改与当前任务无关的文件。
 
+## FastCtx
+
+- 处理本地项目、代码、配置和日志时，优先使用 FastCtx MCP（`mcp__fastctx`）进行搜索和读取。
+- 需要查找文件、函数、关键字、配置项或代码引用时，先使用 FastCtx 定位相关内容。
+- 不要为了查找内容而优先递归扫描整个项目，也不要大量使用 `Get-ChildItem`、`Get-Content`、`Select-String`、`grep` 等命令。
+- FastCtx 找到目标后，只读取完成当前任务所需要的文件和上下文，避免无差别读取整个仓库。
+- 只有在 FastCtx 无法完成检索或读取时，才回退到 PowerShell、Git 或其他本地命令。
+- 文件修改、命令执行、测试和构建仍使用合适的本地工具完成，FastCtx 主要用于快速定位和读取上下文。
+
+## PowerShell
+
+- 在 Windows 环境中，默认使用 PowerShell 7（`pwsh`），不要使用 Windows PowerShell 5.1（`powershell.exe`）。
+- 需要执行 PowerShell 命令或脚本时，优先使用 `pwsh`。
+- 只有在明确要求兼容 Windows PowerShell 5.1 时，才使用 `powershell.exe`。
+
 ## 文件操作
 
 - 未经明确要求，不要删除、移动或重命名现有文件。
