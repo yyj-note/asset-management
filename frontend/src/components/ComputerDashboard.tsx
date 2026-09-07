@@ -33,7 +33,7 @@ function rank(values: Array<string | null | undefined>, limit = 5): RankedItem[]
 
 function Ranking({ title, items, tone }: { title: string; items: RankedItem[]; tone: string }) {
   return <div className={`cockpit-ranking ${tone}`}>
-    <h3>{title}</h3>
+    <div className="cockpit-ranking-head"><h3>{title}</h3><span>数量分布</span></div>
     <div>{items.length === 0 ? <span className="cockpit-empty-copy">暂无数据</span> : items.map((item) => <div className="cockpit-rank-row" key={item.label}>
       <div><strong title={item.label}>{item.label}</strong><span>{item.count} 台</span></div>
       <div className="cockpit-progress"><i style={{ width: `${item.percent}%` }} /></div>
@@ -76,25 +76,28 @@ export function ComputerDashboard({ assets, loading, canCreate, onRefresh, onCre
     { label: '已报废', value: scrapped, detail: scrapped ? '保留历史档案' : '当前无报废设备', filter: 'scrapped', tone: 'slate', icon: ArchiveIcon },
   ]
 
-  return <section className={`computer-cockpit ${loading ? 'loading' : ''}`}>
+  return <section className={`computer-cockpit ${loading ? 'loading' : ''}`} aria-busy={loading}>
     <header className="cockpit-heading">
-      <div><span>COMPUTER ASSET COCKPIT</span><h1>驾驶舱</h1><p>{today} · 聚焦电脑配置、使用状态与配套设备</p></div>
+      <div className="cockpit-heading-copy"><span className="cockpit-heading-kicker">COMPUTER ASSET COCKPIT</span><h1>驾驶舱</h1><p><span className="cockpit-heading-date">{today}</span><i className="cockpit-heading-divider" />聚焦电脑配置、使用状态与配套设备</p></div>
+      <div className="cockpit-heading-side">
+        <div className="cockpit-heading-scope"><span className="cockpit-scope-dot" />资产全景<i />状态清晰<i />快速行动</div>
       <div className="cockpit-heading-actions">
         <button className="cockpit-secondary-action" type="button" onClick={onRefresh}><RefreshIcon />刷新数据</button>
         {canCreate && <button className="cockpit-primary-action" type="button" onClick={onCreate}><PlusIcon /><span>登记电脑</span></button>}
+      </div>
       </div>
     </header>
 
     <div className="cockpit-metrics">{metrics.map((metric) => {
       const MetricIcon = metric.icon
-      return <button className={`cockpit-metric ${metric.tone}`} type="button" key={metric.label} onClick={() => onViewAssets(metric.filter)}>
-        <span className="cockpit-metric-icon"><MetricIcon /></span><span><b>{metric.label}</b><strong>{metric.value}</strong><small>{metric.detail}</small></span>
+      return <button className={`cockpit-metric ${metric.tone}`} type="button" key={metric.label} aria-label={`${metric.label}，${metric.detail}`} onClick={() => onViewAssets(metric.filter)}>
+        <span className="cockpit-metric-icon"><MetricIcon /></span><span className="cockpit-metric-copy"><b>{metric.label}</b><strong>{metric.value}</strong><small>{metric.detail}</small></span>
       </button>
     })}</div>
 
     <div className="cockpit-layout">
       <section className="cockpit-card cockpit-status-card">
-        <div className="cockpit-card-head"><div><span>电脑状态</span><h2>使用情况</h2></div><button onClick={() => onViewAssets('all')}>查看资产</button></div>
+        <div className="cockpit-card-head"><div className="cockpit-card-title"><span>电脑状态</span><h2>使用情况</h2></div><button type="button" onClick={() => onViewAssets('all')}>查看资产</button></div>
         <div className="cockpit-status-body">
           <div className="cockpit-ring" style={{ background: ring }}><div><strong>{computers.length}</strong><span>电脑总量</span></div></div>
           <div className="cockpit-status-list">
@@ -107,7 +110,7 @@ export function ComputerDashboard({ assets, loading, canCreate, onRefresh, onCre
       </section>
 
       <section className="cockpit-card cockpit-health-card">
-        <div className="cockpit-card-head"><div><span>档案质量</span><h2>配置完整度</h2></div><b className="cockpit-health-score">{configurationRate}%</b></div>
+        <div className="cockpit-card-head"><div className="cockpit-card-title"><span>档案质量</span><h2>配置完整度</h2></div><b className="cockpit-health-score">{configurationRate}%</b></div>
         <div className="cockpit-health-progress"><i style={{ width: `${configurationRate}%` }} /></div>
         <p>按 CPU、内存和硬盘三项关键配置计算</p>
         <div className="cockpit-health-grid">
@@ -119,7 +122,7 @@ export function ComputerDashboard({ assets, loading, canCreate, onRefresh, onCre
       </section>
 
       <section className="cockpit-card cockpit-config-card">
-        <div className="cockpit-card-head"><div><span>硬件画像</span><h2>主流电脑配置</h2></div><span className="cockpit-card-note">按电脑数量排序</span></div>
+        <div className="cockpit-card-head"><div className="cockpit-card-title"><span>硬件画像</span><h2>主流电脑配置</h2></div><span className="cockpit-card-note">按电脑数量排序</span></div>
         <div className="cockpit-config-columns">
           <Ranking title="CPU" items={rank(computers.map((asset) => asset.cpu))} tone="cpu" />
           <Ranking title="内存" items={rank(computers.map((asset) => asset.memory))} tone="memory" />
@@ -128,7 +131,7 @@ export function ComputerDashboard({ assets, loading, canCreate, onRefresh, onCre
       </section>
 
       <section className="cockpit-card cockpit-support-card">
-        <div className="cockpit-card-head"><div><span>配套设备</span><h2>显示器绑定</h2></div><DashboardIcon /></div>
+        <div className="cockpit-card-head"><div className="cockpit-card-title"><span>配套设备</span><h2>显示器绑定</h2></div><span className="cockpit-card-symbol"><DashboardIcon /></span></div>
         <div className="cockpit-support-total"><strong>{displays.length}</strong><span>台显示器资产</span></div>
         <div className="cockpit-support-line"><span><i className="bound" />已绑定电脑</span><strong>{boundDisplays}</strong></div>
         <div className="cockpit-support-line"><span><i className="unbound" />暂未绑定</span><strong>{unboundDisplays}</strong></div>
@@ -137,7 +140,7 @@ export function ComputerDashboard({ assets, loading, canCreate, onRefresh, onCre
       </section>
 
       <section className="cockpit-card cockpit-location-card">
-        <div className="cockpit-card-head"><div><span>资产分布</span><h2>部门与位置</h2></div></div>
+        <div className="cockpit-card-head"><div className="cockpit-card-title"><span>资产分布</span><h2>部门与位置</h2></div></div>
         <div className="cockpit-location-columns">
           <Ranking title="归属部门" items={rank(computers.map((asset) => asset.ownershipDepartment), 4)} tone="department" />
           <Ranking title="存放位置" items={rank(computers.map((asset) => asset.location.name), 4)} tone="location" />
@@ -145,7 +148,7 @@ export function ComputerDashboard({ assets, loading, canCreate, onRefresh, onCre
       </section>
 
       <section className="cockpit-card cockpit-recent-card">
-        <div className="cockpit-card-head"><div><span>动态</span><h2>最近更新的电脑</h2></div><button onClick={() => onViewAssets('all')}>全部电脑</button></div>
+        <div className="cockpit-card-head"><div className="cockpit-card-title"><span>动态</span><h2>最近更新的电脑</h2></div><button type="button" onClick={() => onViewAssets('all')}>全部电脑</button></div>
         <div className="cockpit-recent-list">{recent.length === 0 ? <div className="cockpit-empty-copy">暂无电脑资产</div> : recent.map((asset) => <button type="button" key={asset.id} onClick={() => onSelect(asset)}>
           <span className="cockpit-device-mark">{asset.name.slice(0, 1).toUpperCase()}</span>
           <span><strong>{asset.name}</strong><small>{asset.assetTag} · {text(asset.model.name)}</small></span>

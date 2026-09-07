@@ -77,15 +77,19 @@ public class AssetService {
     }
 
     public AssetResponse update(Long id, AssetRequest request) {
+        String assetTag = clean(request.assetTag());
+        if (assetTag == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "更新资产时资产编号不能为空");
+        }
         Asset asset = findAsset(id);
         String previousName = asset.getName();
         String previousDepartment = asset.getOwnershipDepartment();
         String previousGraphicsCard = asset.getGraphicsCard();
         Map<String, Object> before = snapshot(asset);
-        if (!asset.getAssetTag().equals(request.assetTag().trim())) {
+        if (!asset.getAssetTag().equals(assetTag)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "已创建资产的编号不能修改，以免与已打印标签不一致");
         }
-        validateUnique(request, id, request.assetTag().trim());
+        validateUnique(request, id, assetTag);
         apply(asset, request);
         rememberChangedSuggestions(previousName, previousDepartment, previousGraphicsCard, asset);
         applyBindings(asset, request.boundDisplayIds(), request.boundComputerId());
@@ -266,11 +270,16 @@ public class AssetService {
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "绑定电脑资产编号“" + computerTag.trim() + "”不存在"))
                 .getId();
         Asset asset = findAsset(assetId);
-        applyBindings(asset, displayIds, computerId);
+        // Import rows only add declared relationships; an empty cell must not erase another row's binding.
+        applyBindings(asset, displayIds, computerId, false);
         assetRepository.save(asset);
     }
 
     private void applyBindings(Asset asset, List<Long> displayIds, Long computerId) {
+        applyBindings(asset, displayIds, computerId, true);
+    }
+
+    private void applyBindings(Asset asset, List<Long> displayIds, Long computerId, boolean replaceExisting) {
         AssetProfile profile = profileOf(asset.getCategory());
         List<Long> uniqueDisplayIds = displayIds == null ? List.of() : new ArrayList<>(new LinkedHashSet<>(displayIds));
         if (profile == AssetProfile.DISPLAY && !uniqueDisplayIds.isEmpty()) {
@@ -283,7 +292,7 @@ public class AssetService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "普通设备不支持电脑与显示器绑定");
         }
 
-        unlinkAll(asset);
+        if (replaceExisting) unlinkAll(asset);
         if (profile == AssetProfile.COMPUTER) {
             for (Long displayId : uniqueDisplayIds) {
                 if (asset.getId() != null && asset.getId().equals(displayId)) {
@@ -293,7 +302,7 @@ public class AssetService {
                 if (profileOf(display.getCategory()) != AssetProfile.DISPLAY) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "只能绑定分类模板为“显示设备”的资产");
                 }
-                if (!display.getBoundComputers().isEmpty()) {
+                if (!display.getBoundComputers().isEmpty() && !display.getBoundComputers().contains(asset)) {
                     Asset existing = display.getBoundComputers().iterator().next();
                     throw new ApiException(HttpStatus.CONFLICT, "显示器“" + display.getAssetTag() + "”已绑定电脑“" + existing.getAssetTag() + "”");
                 }
@@ -307,6 +316,9 @@ public class AssetService {
             Asset computer = findAsset(computerId);
             if (profileOf(computer.getCategory()) != AssetProfile.COMPUTER) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "显示器只能绑定分类模板为“电脑设备”的资产");
+            }
+            if (!asset.getBoundComputers().isEmpty() && !asset.getBoundComputers().contains(computer)) {
+                throw new ApiException(HttpStatus.CONFLICT, "显示器“" + asset.getAssetTag() + "”不能同时绑定多台电脑");
             }
             computer.getBoundDisplays().add(asset);
             asset.getBoundComputers().add(computer);

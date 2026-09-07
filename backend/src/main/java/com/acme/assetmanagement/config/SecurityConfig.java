@@ -1,6 +1,7 @@
 package com.acme.assetmanagement.config;
 
 import com.acme.assetmanagement.security.AccountPrincipal;
+import com.acme.assetmanagement.security.AccountSessionFilter;
 import com.acme.assetmanagement.user.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
@@ -36,11 +38,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository repository) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
 
         http
+                .addFilterBefore(new AccountSessionFilter(repository), AnonymousAuthenticationFilter.class)
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository))
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth

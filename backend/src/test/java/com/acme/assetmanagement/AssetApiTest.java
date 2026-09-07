@@ -63,6 +63,23 @@ class AssetApiTest {
                 .andExpect(jsonPath("$[?(@.assetTag == '202609010001')].updatedAt").exists());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "\"assetTag\":null,", "\"assetTag\":\"\","})
+    void rejectsUpdateWithoutAssetTag(String tagField) throws Exception {
+        var asset = assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow();
+        String originalName = asset.getName();
+        String body = """
+                {%s"name":"不应保存的名称","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"checkedOut":false}
+                """.formatted(tagField, asset.getCompany().getId(), asset.getModel().getId(),
+                asset.getCategory().getId(), asset.getStatus().getId(), asset.getLocation().getId());
+        mockMvc.perform(put("/api/assets/{id}", asset.getId()).with(assetUser()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("更新资产时资产编号不能为空"));
+        assertEquals(originalName, assetRepository.findById(asset.getId()).orElseThrow().getName());
+    }
+
     @Test
     void qrAssetRecordIsPublicReadOnlyAndHidesSensitiveFields() throws Exception {
         var asset = assetRepository.findAll().stream()

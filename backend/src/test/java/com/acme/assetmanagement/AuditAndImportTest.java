@@ -31,6 +31,7 @@ class AuditAndImportTest {
     @Autowired MockMvc mockMvc;
     @Autowired AssetRepository assetRepository;
     @Autowired AuditLogRepository auditLogRepository;
+    @Autowired jakarta.persistence.EntityManager entityManager;
 
     @Test
     void onlySuperAdminCanReadAuditLogs() throws Exception {
@@ -77,6 +78,54 @@ class AuditAndImportTest {
         mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
                 .andExpect(status().isBadRequest());
         org.junit.jupiter.api.Assertions.assertEquals(before, assetRepository.count());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "true,false,false", "true,false,true", "false,true,false", "false,true,true",
+            "true,true,false", "true,true,true"
+    })
+    void importsBindingsRegardlessOfRowOrder(boolean computerDeclares, boolean displayDeclares,
+                                            boolean reverse) throws Exception {
+        String computer = "940000000001,导入电脑,导入公司,电脑型号,台式机,当前可用,导入仓库,"
+                + (computerDeclares ? "940000000002" : "") + ",\n";
+        String display = "940000000002,导入显示器,导入公司,显示器型号,显示器,当前可用,导入仓库,,"
+                + (displayDeclares ? "940000000001" : "") + "\n";
+        MockMultipartFile file = csv(bindingHeader() + (reverse ? display + computer : computer + display));
+        mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.importedCount").value(2));
+        entityManager.flush();
+        entityManager.clear();
+        var importedComputer = assetRepository.findByAssetTagIgnoreCase("940000000001").orElseThrow();
+        var importedDisplay = assetRepository.findByAssetTagIgnoreCase("940000000002").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(1, importedComputer.getBoundDisplays().size());
+        org.junit.jupiter.api.Assertions.assertEquals(importedDisplay.getId(),
+                importedComputer.getBoundDisplays().iterator().next().getId());
+        org.junit.jupiter.api.Assertions.assertEquals(1, importedDisplay.getBoundComputers().size());
+        org.junit.jupiter.api.Assertions.assertEquals(importedComputer.getId(),
+                importedDisplay.getBoundComputers().iterator().next().getId());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void conflictingImportBindingsRollBackAllAssets(boolean reverse) throws Exception {
+        long before = assetRepository.count();
+        long auditBefore = auditLogRepository.count();
+        String computer = "950000000001,冲突电脑A,冲突公司,电脑型号,台式机,当前可用,冲突仓库,950000000003,\n";
+        String otherComputer = "950000000002,冲突电脑B,冲突公司,电脑型号,台式机,当前可用,冲突仓库,,\n";
+        String display = "950000000003,冲突显示器,冲突公司,显示器型号,显示器,当前可用,冲突仓库,,950000000002\n";
+        MockMultipartFile file = csv(bindingHeader()
+                + (reverse ? display + otherComputer + computer : computer + otherComputer + display));
+        mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
+                .andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertEquals(before, assetRepository.count());
+        org.junit.jupiter.api.Assertions.assertEquals(auditBefore, auditLogRepository.count());
+        org.junit.jupiter.api.Assertions.assertFalse(assetRepository.existsByAssetTagIgnoreCase("950000000001"));
+    }
+
+    private static String bindingHeader() {
+        return "资产编号*,资产名称*,所属公司*,设备型号*,资产分类*,资产状态*,存放位置*,绑定显示器资产编号(分号分隔),绑定电脑资产编号\n";
     }
 
     private static MockMultipartFile csv(String content) {

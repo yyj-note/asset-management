@@ -66,12 +66,17 @@ class UserAuthTest {
                 .andExpect(jsonPath("$.permissions", hasItem("ASSET_DELETE")));
 
         long userId = userRepository.findByUsernameIgnoreCase("operator").orElseThrow().getId();
+        MockHttpSession beforeReset = loginSession("operator", "Secure123!");
+        mockMvc.perform(get("/api/assets").session(beforeReset)).andExpect(status().isOk());
         mockMvc.perform(put("/api/users/{id}", userId).with(user("admin").roles("SUPER_ADMIN")).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"password\":\"NewSecure456!\"}"))
                 .andExpect(status().isOk());
         org.junit.jupiter.api.Assertions.assertTrue(passwordEncoder.matches("NewSecure456!",
                 userRepository.findById(userId).orElseThrow().getPasswordHash()));
+        mockMvc.perform(delete("/api/assets/{id}", Long.MAX_VALUE).session(beforeReset).with(csrf()))
+                .andExpect(status().isUnauthorized());
+        org.junit.jupiter.api.Assertions.assertTrue(beforeReset.isInvalid());
 
         var loginResult = mockMvc.perform(post("/api/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -91,8 +96,14 @@ class UserAuthTest {
                         .content("{\"password\":\"CannotChange123!\"}"))
                 .andExpect(status().isBadRequest());
 
+        MockHttpSession secondSession = loginSession("operator", "NewSecure456!");
         mockMvc.perform(delete("/api/users/{id}", userId).with(user("admin").roles("SUPER_ADMIN")).with(csrf()))
                 .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/assets/{id}", Long.MAX_VALUE).session(normalSession).with(csrf()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/assets").session(secondSession)).andExpect(status().isUnauthorized());
+        org.junit.jupiter.api.Assertions.assertTrue(normalSession.isInvalid());
+        org.junit.jupiter.api.Assertions.assertTrue(secondSession.isInvalid());
         mockMvc.perform(delete("/api/users/{id}", adminId).with(user("admin").roles("SUPER_ADMIN")).with(csrf()))
                 .andExpect(status().isBadRequest());
     }
@@ -121,6 +132,16 @@ class UserAuthTest {
         var admin = userRepository.findByUsernameIgnoreCase("admin").orElseThrow();
         org.junit.jupiter.api.Assertions.assertTrue(passwordEncoder.matches("NewAdmin456!", admin.getPasswordHash()));
         org.junit.jupiter.api.Assertions.assertFalse(passwordEncoder.matches("ChangeMe123!", admin.getPasswordHash()));
+        mockMvc.perform(get("/api/users").session(adminSession)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/users").session(loginSession("admin", "NewAdmin456!")))
+                .andExpect(status().isOk());
+    }
+
+    private MockHttpSession loginSession(String username, String password) throws Exception {
+        return (MockHttpSession) mockMvc.perform(post("/api/auth/login").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk()).andReturn().getRequest().getSession(false);
     }
 
     @Test
