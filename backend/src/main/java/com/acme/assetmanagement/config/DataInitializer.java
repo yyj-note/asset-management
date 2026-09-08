@@ -22,17 +22,24 @@ public class DataInitializer implements CommandLineRunner {
     private final LookupRepository lookupRepository;
     private final AssetRepository assetRepository;
     private final SystemSettingRepository systemSettingRepository;
+    private final com.acme.assetmanagement.asset.AssetTagSequenceRepository sequenceRepository;
 
     public DataInitializer(LookupRepository lookupRepository, AssetRepository assetRepository,
-                           SystemSettingRepository systemSettingRepository) {
+                           SystemSettingRepository systemSettingRepository,
+                           com.acme.assetmanagement.asset.AssetTagSequenceRepository sequenceRepository) {
         this.lookupRepository = lookupRepository;
         this.assetRepository = assetRepository;
         this.systemSettingRepository = systemSettingRepository;
+        this.sequenceRepository = sequenceRepository;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        var lockDate = com.acme.assetmanagement.asset.AssetTagGenerator.ALLOCATION_LOCK_DATE;
+        if (!sequenceRepository.existsById(lockDate)) {
+            sequenceRepository.saveAndFlush(new com.acme.assetmanagement.asset.AssetTagSequence(lockDate, 0));
+        }
         if (lookupRepository.count() > 0) {
             migrateLegacyAssetNumbers();
             ensureFixedStatus("已报废");

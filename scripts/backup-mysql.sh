@@ -7,6 +7,8 @@ BACKUP_DIR="${ASSET_BACKUP_DIR:-$PROJECT_DIR/backups/monthly}"
 RETENTION_COUNT="${ASSET_BACKUP_RETENTION:-12}"
 BACKUP_FILE="$BACKUP_DIR/asset_management_$(date +%Y%m%d_%H%M%S).sql.gz"
 TEMP_FILE="$BACKUP_FILE.partial"
+IMAGE_FILE="${BACKUP_FILE%.sql.gz}.images.tar.gz"
+IMAGE_TEMP_FILE="$IMAGE_FILE.partial"
 LOCK_FILE="$BACKUP_DIR/.backup.lock"
 
 cd "$PROJECT_DIR"
@@ -33,7 +35,12 @@ if [[ -z "$(docker compose ps -q mysql)" ]]; then
   exit 1
 fi
 
-trap 'rm -f "$TEMP_FILE"' EXIT
+if [[ -z "$(docker compose ps -q backend)" ]]; then
+  echo "错误：后端容器不存在，无法备份资产图片。" >&2
+  exit 1
+fi
+
+trap 'rm -f "$TEMP_FILE" "$IMAGE_TEMP_FILE"' EXIT
 
 docker compose exec -T mysql sh -c \
   'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --quick --routines --triggers --events --hex-blob --default-character-set=utf8mb4 --set-gtid-purged=OFF --no-tablespaces "$MYSQL_DATABASE"' \
@@ -41,21 +48,26 @@ docker compose exec -T mysql sh -c \
 
 test -s "$TEMP_FILE"
 gzip -t "$TEMP_FILE"
+docker compose exec -T backend sh -c 'mkdir -p /app/data/asset-images; tar -czf - -C /app/data asset-images' > "$IMAGE_TEMP_FILE"
+gzip -t "$IMAGE_TEMP_FILE"
+tar -tzf "$IMAGE_TEMP_FILE" >/dev/null
+mv "$IMAGE_TEMP_FILE" "$IMAGE_FILE"
 mv "$TEMP_FILE" "$BACKUP_FILE"
 
 (
   cd "$BACKUP_DIR"
-  sha256sum "$(basename "$BACKUP_FILE")" > "$(basename "$BACKUP_FILE").sha256"
+  sha256sum "$(basename "$BACKUP_FILE")" "$(basename "$IMAGE_FILE")" > "$(basename "$BACKUP_FILE").sha256"
 )
 
 mapfile -t BACKUP_FILES < <(printf '%s\n' "$BACKUP_DIR"/asset_management_*.sql.gz | sort)
 if (( ${#BACKUP_FILES[@]} > RETENTION_COUNT )); then
   REMOVE_COUNT=$(( ${#BACKUP_FILES[@]} - RETENTION_COUNT ))
   for (( index=0; index<REMOVE_COUNT; index++ )); do
-    rm -f -- "${BACKUP_FILES[$index]}" "${BACKUP_FILES[$index]}.sha256"
+    rm -f -- "${BACKUP_FILES[$index]}" "${BACKUP_FILES[$index]}.sha256" "${BACKUP_FILES[$index]%.sql.gz}.images.tar.gz"
   done
 fi
 
 echo "备份完成：$BACKUP_FILE"
+echo "图片备份：$IMAGE_FILE"
 echo "校验文件：$BACKUP_FILE.sha256"
 echo "保留策略：最近 $RETENTION_COUNT 份月度备份"

@@ -14,9 +14,7 @@ interface Props {
 type RankedItem = { label: string; count: number; percent: number }
 
 const isComputer = (asset: Asset) => asset.category.assetProfile === 'COMPUTER'
-  || /电脑|台式|笔记本|mac/i.test(asset.category.name)
 const isDisplay = (asset: Asset) => asset.category.assetProfile === 'DISPLAY'
-  || /显示器|屏幕|大屏/i.test(asset.category.name)
 const isMaintenance = (asset: Asset) => /维修|维护/.test(asset.status.name)
 const isScrapped = (asset: Asset) => asset.status.name.includes('报废')
 const percent = (value: number, total: number) => total ? Math.round(value / total * 100) : 0

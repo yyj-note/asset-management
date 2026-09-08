@@ -73,7 +73,7 @@ docker compose up -d --build --wait
 - 资产图片和备注
 - CSV 导入产生的资产和审计记录
 
-这些数据保存在 Docker 命名卷 `asset-management_mysql_data` 中，而不是保存在临时容器内。
+业务记录保存在 Docker 命名卷 `asset-management_mysql_data` 中；资产图片文件保存在 `asset-management_asset_images` 卷中。两者都需要备份。
 
 > 后端容器重启后，已有登录会话可能失效，用户需要重新登录。这不代表业务数据丢失。
 
@@ -349,7 +349,7 @@ cd /opt/asset-management
 ./scripts/backup-mysql.sh
 ```
 
-确认 `backups/monthly/` 中生成了 `.sql.gz` 和校验文件后再继续。
+确认 `backups/monthly/` 中生成了同一时间戳的 `.sql.gz`、`.images.tar.gz` 和校验文件后再继续。备份期间应暂停业务写入，保证数据库与图片一致。
 
 ### 2. 重新构建并启动
 
@@ -381,7 +381,8 @@ docker compose logs --tail=100 backend
 | 资产、关联设备、状态 | MySQL 数据卷 | 保留 |
 | 用户、密码哈希、头像 | MySQL 数据卷 | 保留 |
 | 操作日志 | MySQL 数据卷 | 保留 |
-| 图片、备注、二维码设置 | MySQL 数据卷 | 保留 |
+| 备注、二维码设置 | MySQL 数据卷 | 保留 |
+| 资产图片文件 | asset_images 数据卷 | 保留 |
 | 浏览器登录会话 | 后端运行内存 | 后端重启后可能需要重新登录 |
 | Docker 构建缓存和旧镜像 | Docker 本地存储 | 可能占用磁盘，但不属于业务数据 |
 
@@ -518,7 +519,11 @@ systemctl status asset-management-backup.timer
 cd /opt/asset-management
 ./scripts/backup-mysql.sh
 docker compose stop web backend
+cd backups/monthly
+sha256sum -c 目标备份.sql.gz.sha256
+cd ../..
 gzip -dc backups/monthly/目标备份.sql.gz | docker compose exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+docker compose run --rm --no-deps -T --user root --entrypoint sh backend -c 'tar -xzf - -C /app/data && chown -R asset:asset /app/data/asset-images' < backups/monthly/目标备份.images.tar.gz
 docker compose up -d --wait
 docker compose ps
 ```

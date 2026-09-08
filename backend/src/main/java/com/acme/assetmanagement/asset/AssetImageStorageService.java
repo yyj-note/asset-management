@@ -29,9 +29,15 @@ public class AssetImageStorageService {
     private static final Pattern STORED_FILE_NAME = Pattern.compile("^[a-f0-9]{32}\\.(?:png|jpg|webp)$");
 
     private final Path directory;
+    private final AssetRepository repository;
+    private final org.springframework.transaction.support.TransactionTemplate transactions;
 
-    public AssetImageStorageService(@Value("${app.asset-images.directory:./data/asset-images}") String directory) {
+    public AssetImageStorageService(@Value("${app.asset-images.directory:./data/asset-images}") String directory,
+                                   AssetRepository repository, org.springframework.transaction.PlatformTransactionManager manager) {
         this.directory = Path.of(directory).toAbsolutePath().normalize();
+        this.repository = repository;
+        this.transactions = new org.springframework.transaction.support.TransactionTemplate(manager);
+        this.transactions.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     public List<String> persistReferences(List<String> references) {
@@ -43,7 +49,8 @@ public class AssetImageStorageService {
             throw new ApiException(HttpStatus.NOT_FOUND, "图片不存在");
         }
         Path file = directory.resolve(fileName).normalize();
-        if (!file.getParent().equals(directory) || !Files.isRegularFile(file)) {
+        if (!file.getParent().equals(directory) || !Files.isRegularFile(file)
+                || repository.countImageReferences(PUBLIC_URL_PREFIX + fileName) == 0) {
             throw new ApiException(HttpStatus.NOT_FOUND, "图片不存在");
         }
         return new FileSystemResource(file);
@@ -57,6 +64,12 @@ public class AssetImageStorageService {
     }
 
     private String persistReference(String value) {
+        return processReference(value, true);
+    }
+
+    public void validateReference(String value) { processReference(value, false); }
+
+    private String processReference(String value, boolean persist) {
         String reference = value == null ? "" : value.trim();
         if (reference.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "资产图片不能为空");
         if (!reference.regionMatches(true, 0, "data:", 0, 5)) {
@@ -82,15 +95,45 @@ public class AssetImageStorageService {
 
         String mediaType = matcher.group(1).toLowerCase(Locale.ROOT);
         validateSignature(bytes, mediaType);
+        if (!persist) return reference;
         String extension = mediaType.equals("image/png") ? "png" : mediaType.equals("image/webp") ? "webp" : "jpg";
         String fileName = UUID.randomUUID().toString().replace("-", "") + "." + extension;
         try {
             Files.createDirectories(directory);
             Files.write(directory.resolve(fileName), bytes, StandardOpenOption.CREATE_NEW);
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCompletion(int status) {
+                            if (status == STATUS_ROLLED_BACK) deleteFile(fileName);
+                        }
+                    });
         } catch (IOException exception) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "资产图片文件保存失败");
         }
         return PUBLIC_URL_PREFIX + fileName;
+    }
+
+    public void removeAfterCommit(List<String> references) {
+        var candidates = references.stream().filter(java.util.Objects::nonNull)
+                .filter(value -> value.startsWith(PUBLIC_URL_PREFIX)).distinct().toList();
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void afterCommit() {
+                        transactions.executeWithoutResult(status -> candidates.forEach(reference -> {
+                            if (repository.countImageReferences(reference) == 0) {
+                                deleteFile(reference.substring(PUBLIC_URL_PREFIX.length()));
+                            }
+                        }));
+                    }
+                });
+    }
+
+    private void deleteFile(String fileName) {
+        if (!STORED_FILE_NAME.matcher(fileName).matches()) return;
+        try { Files.deleteIfExists(directory.resolve(fileName)); }
+        catch (IOException exception) {
+            org.slf4j.LoggerFactory.getLogger(getClass()).warn("Unable to remove unreferenced asset image {}", fileName, exception);
+        }
     }
 
     private void validateSignature(byte[] bytes, String mediaType) {

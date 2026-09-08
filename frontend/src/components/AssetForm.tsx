@@ -31,6 +31,7 @@ function fromAsset(asset: Asset | null, clone = false): AssetPayload {
   const statusMeansCheckedOut = asset.status.name.includes('在用') || asset.status.name.includes('领出')
   return {
     assetTag: clone ? '' : asset.assetTag,
+    version: clone ? undefined : asset.version,
     name: asset.name,
     ownershipDepartment: asset.ownershipDepartment || '',
     cpu: asset.cpu || '', memory: asset.memory || '', storage: asset.storage || '', graphicsCard: asset.graphicsCard || '',
@@ -134,7 +135,11 @@ async function prepareImage(file: File) {
 }
 
 export function AssetForm({ asset, clone = false, lookups, bindableAssets, saving, createdLookup, onCancel, onSave, onNewLookup, onDeleteLookup }: Props) {
-  const [form, setForm] = useState<AssetPayload>(() => fromAsset(asset, clone))
+  const [form, setForm] = useState<AssetPayload>(() => {
+    const initial = fromAsset(asset, clone)
+    if (clone) initial.statusId = lookups.find((item) => item.type === 'STATUS' && ['当前可用', '可领用'].includes(item.name))?.id ?? null
+    return initial
+  })
   const [imageError, setImageError] = useState('')
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)

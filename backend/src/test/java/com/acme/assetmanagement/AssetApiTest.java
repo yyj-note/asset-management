@@ -51,6 +51,58 @@ class AssetApiTest {
     @Autowired AssetRepository assetRepository;
 
     @Test
+    void staleEditCannotUndoReturn() throws Exception {
+        var asset = assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow();
+        asset.setStatus(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "在用").orElseThrow());
+        asset.setCheckedOut(true);
+        asset.setAssignedTo("旧领用人");
+        assetRepository.saveAndFlush(asset);
+        long version = asset.getVersion();
+        String body = """
+                {"assetTag":"%s","name":"过期修改","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"checkedOut":true,"assignedTo":"旧领用人"}
+                """.formatted(asset.getAssetTag(), asset.getCompany().getId(), asset.getModel().getId(),
+                asset.getCategory().getId(), asset.getStatus().getId(), asset.getLocation().getId());
+        mockMvc.perform(post("/api/assets/{id}/return", asset.getId()).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/assets/{id}", asset.getId()).with(assetUser()).with(csrf())
+                        .header("If-Match", version).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict());
+        assertFalse(assetRepository.findById(asset.getId()).orElseThrow().isCheckedOut());
+        mockMvc.perform(put("/api/assets/{id}", asset.getId()).with(assetUser()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isPreconditionRequired());
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void sharedImageSurvivesUntilLastAssetIsDeleted() throws Exception {
+        var seed = assetRepository.findById(assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow().getId()).orElseThrow();
+        String image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        String template = """
+                {"assetTag":"%s","name":"图片生命周期","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"checkedOut":false,"imageUrls":["%s"]}
+                """;
+        String first = template.formatted("960000000001", seed.getCompany().getId(), seed.getModel().getId(),
+                seed.getCategory().getId(), seed.getStatus().getId(), seed.getLocation().getId(), image);
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(first))
+                .andExpect(status().isCreated());
+        var original = assetRepository.findByAssetTagIgnoreCase("960000000001").orElseThrow();
+        String reference = original.getImageUrl();
+        String second = template.formatted("960000000002", seed.getCompany().getId(), seed.getModel().getId(),
+                seed.getCategory().getId(), seed.getStatus().getId(), seed.getLocation().getId(), reference);
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(second))
+                .andExpect(status().isCreated());
+        var clone = assetRepository.findByAssetTagIgnoreCase("960000000002").orElseThrow();
+        mockMvc.perform(delete("/api/assets/{id}", original.getId()).with(assetUser()).with(csrf())).andExpect(status().isNoContent());
+        mockMvc.perform(get(reference)).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/assets/{id}", clone.getId()).with(assetUser()).with(csrf())).andExpect(status().isNoContent());
+        mockMvc.perform(get(reference)).andExpect(status().isNotFound());
+        assertFalse(java.nio.file.Files.exists(java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
+                "asset-management-test-images", reference.substring(reference.lastIndexOf('/') + 1))));
+    }
+
+    @Test
     void listsSeedAsset() throws Exception {
         mockMvc.perform(get("/api/assets").with(assetUser()))
                 .andExpect(status().isOk())
@@ -280,7 +332,7 @@ class AssetApiTest {
                  "accessories":[]}
                 """.formatted(companyId, modelId, categoryId, statusId, locationId);
 
-        mockMvc.perform(put("/api/assets/{id}", assetId).with(assetUser()).with(csrf())
+        mockMvc.perform(put("/api/assets/{id}", assetId).header("If-Match", assetRepository.findById(assetId).orElseThrow().getVersion()).with(assetUser()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("更新后的资产"))
@@ -300,7 +352,7 @@ class AssetApiTest {
         assertTrue(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.CPU, "i7").isPresent());
 
         String changedNumber = body.replace("202609010001", "202609010099");
-        mockMvc.perform(put("/api/assets/{id}", assetId).with(assetUser()).with(csrf())
+        mockMvc.perform(put("/api/assets/{id}", assetId).header("If-Match", assetRepository.findById(assetId).orElseThrow().getVersion()).with(assetUser()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(changedNumber))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("编号不能修改")));
@@ -308,7 +360,7 @@ class AssetApiTest {
         String tooManyImages = body.replace(
                 "\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\",\"data:IMAGE/PNG;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\"",
                 "\"1\",\"2\",\"3\",\"4\",\"5\",\"6\"");
-        mockMvc.perform(put("/api/assets/{id}", assetId).with(assetUser()).with(csrf())
+        mockMvc.perform(put("/api/assets/{id}", assetId).header("If-Match", assetRepository.findById(assetId).orElseThrow().getVersion()).with(assetUser()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(tooManyImages))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("资产图片最多上传5张"));

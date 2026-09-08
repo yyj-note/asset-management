@@ -68,7 +68,7 @@ public class AssetService {
         asset.setAssetTag(assetTag);
         Asset saved = assetRepository.save(asset);
         applyBindings(saved, request.boundDisplayIds(), request.boundComputerId());
-        saved = assetRepository.save(saved);
+        saved = assetRepository.saveAndFlush(saved);
         AuditAction action = cloneSourceId == null ? AuditAction.ASSET_CREATE : AuditAction.ASSET_CLONE;
         String summary = cloneSourceId == null ? "新增资产“" + saved.getName() + "”"
                 : "从资产 ID " + cloneSourceId + " 克隆生成新资产“" + saved.getName() + "”";
@@ -76,12 +76,16 @@ public class AssetService {
         return AssetResponse.from(saved);
     }
 
-    public AssetResponse update(Long id, AssetRequest request) {
+    public AssetResponse update(Long id, AssetRequest request, String version) {
         String assetTag = clean(request.assetTag());
         if (assetTag == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "更新资产时资产编号不能为空");
         }
         Asset asset = findAsset(id);
+        if (version == null) throw new ApiException(HttpStatus.PRECONDITION_REQUIRED, "请刷新资产后重新编辑");
+        if (!Long.toString(asset.getVersion()).equals(version.replace("\"", ""))) {
+            throw new ApiException(HttpStatus.CONFLICT, "资产已被其他操作更新，请刷新后重新编辑");
+        }
         String previousName = asset.getName();
         String previousDepartment = asset.getOwnershipDepartment();
         String previousGraphicsCard = asset.getGraphicsCard();
@@ -93,7 +97,7 @@ public class AssetService {
         apply(asset, request);
         rememberChangedSuggestions(previousName, previousDepartment, previousGraphicsCard, asset);
         applyBindings(asset, request.boundDisplayIds(), request.boundComputerId());
-        Asset saved = assetRepository.save(asset);
+        Asset saved = assetRepository.saveAndFlush(asset);
         auditLogService.success(AuditAction.ASSET_UPDATE, "ASSET", saved.getId(), assetLabel(saved),
                 "编辑资产“" + saved.getName() + "”", auditLogService.diff(before, snapshot(saved)));
         return AssetResponse.from(saved);
@@ -119,7 +123,7 @@ public class AssetService {
         lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "当前可用")
                 .or(() -> lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "可领用"))
                 .ifPresent(asset::setStatus);
-        Asset saved = assetRepository.save(asset);
+        Asset saved = assetRepository.saveAndFlush(asset);
         auditLogService.success(AuditAction.ASSET_RETURN, "ASSET", saved.getId(), assetLabel(saved),
                 "归还资产并清空领用人", auditLogService.diff(before, snapshot(saved)));
         return AssetResponse.from(saved);
@@ -127,6 +131,7 @@ public class AssetService {
 
     public void delete(Long id) {
         Asset asset = findAsset(id);
+        assetImageStorageService.removeAfterCommit(imageReferences(asset));
         Map<String, Object> before = snapshot(asset);
         String label = assetLabel(asset);
         String name = asset.getName();
@@ -196,6 +201,7 @@ public class AssetService {
     }
 
     private void apply(Asset asset, AssetRequest request) {
+        assetImageStorageService.removeAfterCommit(imageReferences(asset));
         asset.setName(request.name().trim());
         asset.setOwnershipDepartment(clean(request.ownershipDepartment()));
         asset.setManufacturerSerialNumber(clean(request.manufacturerSerialNumber()));
@@ -400,5 +406,11 @@ public class AssetService {
     private String clean(String value) {
         if (value == null || value.isBlank()) return null;
         return value.trim();
+    }
+
+    private List<String> imageReferences(Asset asset) {
+        List<String> references = new ArrayList<>(asset.getImageUrls());
+        if (asset.getImageUrl() != null) references.add(asset.getImageUrl());
+        return references;
     }
 }

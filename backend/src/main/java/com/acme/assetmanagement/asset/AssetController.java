@@ -95,8 +95,9 @@ public class AssetController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('ASSET_EDIT')")
-    public AssetResponse update(@PathVariable Long id, @Valid @RequestBody AssetRequest request) {
-        return service.update(id, request);
+    public AssetResponse update(@PathVariable Long id, @Valid @RequestBody AssetRequest request,
+                                @RequestHeader(value = "If-Match", required = false) String version) {
+        return service.update(id, request, version);
     }
 
     @PostMapping("/{id}/return")

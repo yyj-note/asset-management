@@ -9,9 +9,9 @@ const permissionLabels = ['查看资产', '新增资产', '编辑资产', '归�
 type Draft = { id?: number; username: string; password: string }
 const freshDraft = (): Draft => ({ username: '', password: '' })
 
-interface Props { avatarRevision: number; onNotify: (text: string, kind?: 'ok' | 'error') => void }
+interface Props { avatarRevision: number; onNotify: (text: string, kind?: 'ok' | 'error') => void; onPasswordChanged: () => void }
 
-export function UserManagement({ avatarRevision, onNotify }: Props) {
+export function UserManagement({ avatarRevision, onNotify, onPasswordChanged }: Props) {
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -54,8 +54,8 @@ export function UserManagement({ avatarRevision, onNotify }: Props) {
       await api.changeMyPassword(currentPassword, newPassword)
       setPasswordEditor(false)
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
-      onNotify('超级管理员密码已更新，下次登录请使用新密码')
-      await load()
+      onNotify('密码已更新，请使用新密码重新登录')
+      onPasswordChanged()
     } catch (error) { onNotify(error instanceof Error ? error.message : '修改密码失败', 'error') }
     finally { setChangingPassword(false) }
   }

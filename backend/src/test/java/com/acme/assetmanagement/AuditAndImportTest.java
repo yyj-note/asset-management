@@ -32,6 +32,25 @@ class AuditAndImportTest {
     @Autowired AssetRepository assetRepository;
     @Autowired AuditLogRepository auditLogRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
+    @Autowired com.acme.assetmanagement.audit.AuditLogService auditService;
+
+    @Test
+    void previewRejectsOverlongNameAndWrongBindingType() throws Exception {
+        var longName = csv(bindingHeader() + "970000000001," + "名".repeat(161) + ",公司,型号,台式机,当前可用,仓库,,\n");
+        mockMvc.perform(multipart("/api/assets/import/preview").file(longName).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.canImport").value(false));
+        var wrongType = csv(bindingHeader() + "970000000001,电脑,公司,型号,台式机,当前可用,仓库,202609010001,\n");
+        mockMvc.perform(multipart("/api/assets/import/preview").file(wrongType).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.canImport").value(false));
+    }
+
+    @Test
+    void exportedUserInputIsTextRatherThanFormula() throws Exception {
+        auditService.authenticationFailure("=1+1", "测试");
+        String csv = mockMvc.perform(get("/api/audit-logs/export.csv").with(adminUser()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(csv.contains("\"'=1+1\""));
+    }
 
     @Test
     void onlySuperAdminCanReadAuditLogs() throws Exception {
@@ -117,8 +136,10 @@ class AuditAndImportTest {
         String display = "950000000003,冲突显示器,冲突公司,显示器型号,显示器,当前可用,冲突仓库,,950000000002\n";
         MockMultipartFile file = csv(bindingHeader()
                 + (reverse ? display + otherComputer + computer : computer + otherComputer + display));
+        mockMvc.perform(multipart("/api/assets/import/preview").file(file).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.canImport").value(false));
         mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
-                .andExpect(status().isConflict());
+                .andExpect(status().isBadRequest());
         org.junit.jupiter.api.Assertions.assertEquals(before, assetRepository.count());
         org.junit.jupiter.api.Assertions.assertEquals(auditBefore, auditLogRepository.count());
         org.junit.jupiter.api.Assertions.assertFalse(assetRepository.existsByAssetTagIgnoreCase("950000000001"));

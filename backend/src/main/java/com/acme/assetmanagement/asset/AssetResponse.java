@@ -8,6 +8,7 @@ import java.util.List;
 
 public record AssetResponse(
         Long id,
+        long version,
         String qrToken,
         String assetTag,
         String name,
@@ -45,7 +46,7 @@ public record AssetResponse(
                 ? asset.getImageUrl() == null || asset.getImageUrl().isBlank() ? List.of() : List.of(asset.getImageUrl())
                 : List.copyOf(asset.getImageUrls());
         return new AssetResponse(
-                asset.getId(), asset.getQrToken(), asset.getAssetTag(), asset.getName(), asset.getOwnershipDepartment(),
+                asset.getId(), asset.getVersion(), asset.getQrToken(), asset.getAssetTag(), asset.getName(), asset.getOwnershipDepartment(),
                 asset.getCpu(), asset.getMemory(), asset.getStorage(), asset.getGraphicsCard(),
                 asset.getManufacturerSerialNumber(),
                 asset.getScreenSize(), asset.getDisplayResolution(), asset.getDisplayInterface(), asset.getOrderNumber(),

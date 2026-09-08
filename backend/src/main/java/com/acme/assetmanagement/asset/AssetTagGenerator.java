@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 public class AssetTagGenerator {
+    public static final LocalDate ALLOCATION_LOCK_DATE = LocalDate.of(1970, 1, 1);
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -24,7 +25,9 @@ public class AssetTagGenerator {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public synchronized String nextTag() {
+    public String nextTag() {
+        // A permanent row also serializes the first allocation of each day, until outer commit.
+        sequenceRepository.findLockedByDate(ALLOCATION_LOCK_DATE).orElseThrow();
         LocalDate date = LocalDate.now(BUSINESS_ZONE);
         String prefix = DATE_FORMAT.format(date);
         AssetTagSequence sequence = sequenceRepository.findLockedByDate(date)

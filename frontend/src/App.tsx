@@ -40,6 +40,7 @@ export default function App() {
   const [summary, setSummary] = useState<Summary>({ total: 0, available: 0, checkedOut: 0, maintenance: 0, scrapped: 0 })
   const [filter, setFilter] = useState<AssetFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [computerOnly, setComputerOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,6 +59,7 @@ export default function App() {
   const [avatarRevision, setAvatarRevision] = useState(() => Date.now())
 
   const showView = (nextSection: AppSection, nextPage: Page, mode: 'push' | 'replace' = 'push') => {
+    setCreatedLookup(null)
     setSection(nextSection)
     setPage(nextPage)
     const current = window.history.state as AppHistoryState | null
@@ -198,13 +200,14 @@ export default function App() {
   }, [assets, lookups])
 
   const visibleAssets = useMemo(() => assets.filter((asset) => {
+    if (computerOnly && asset.category.assetProfile !== 'COMPUTER') return false
     if (categoryFilter && String(asset.category.id) !== categoryFilter) return false
     if (filter === 'available') return !asset.checkedOut && !isMaintenance(asset) && !isScrapped(asset)
     if (filter === 'checkedOut') return asset.checkedOut && !isScrapped(asset)
     if (filter === 'maintenance') return isMaintenance(asset)
     if (filter === 'scrapped') return isScrapped(asset)
     return true
-  }), [assets, categoryFilter, filter])
+  }), [assets, categoryFilter, filter, computerOnly])
   const saveAsset = async (payload: AssetPayload) => {
     setSaving(true)
     try {
@@ -299,13 +302,13 @@ export default function App() {
 
   if (section === 'users' && authUser.canManageUsers) return <div className="app-shell">
     <Sidebar section={section} canManageUsers={authUser.canManageUsers} onFilter={setFilter} onSection={(next) => showView(next, { name: 'list' })} />
-    <main className="main-content">{topbar}<div className="content"><UserManagement avatarRevision={avatarRevision} onNotify={notify} /></div></main>
+    <main className="main-content">{topbar}<div className="content"><UserManagement avatarRevision={avatarRevision} onNotify={notify} onPasswordChanged={() => void logout()} /></div></main>
     {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
   </div>
 
   if (section === 'settings' && authUser.canManageUsers) return <div className="app-shell">
     <Sidebar section={section} canManageUsers={authUser.canManageUsers} onFilter={setFilter} onSection={(next) => showView(next, { name: 'list' })} />
-    <main className="main-content">{topbar}<div className="content"><SystemSettings onNotify={notify} /></div></main>
+    <main className="main-content">{topbar}<div className="content"><SystemSettings onNotify={notify} onImported={() => load(search)} /></div></main>
     {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
   </div>
 
@@ -323,7 +326,7 @@ export default function App() {
       canCreate={hasPermission('ASSET_CREATE')}
       onRefresh={() => void load('')}
       onCreate={() => showView('assets', { name: 'form', asset: null })}
-      onViewAssets={(nextFilter) => { setAssets(suggestionAssets); setFilter(nextFilter); setCategoryFilter(''); setSearch(''); showView('assets', { name: 'list' }) }}
+      onViewAssets={(nextFilter) => { setAssets(suggestionAssets); setFilter(nextFilter); setCategoryFilter(''); setComputerOnly(true); setSearch(''); showView('assets', { name: 'list' }) }}
       onSelect={(asset) => showView('assets', { name: 'detail', asset })}
     /></div></main>
     {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
@@ -338,8 +341,9 @@ export default function App() {
       <div className="invoice-toolbar">
         <div className="invoice-toolbar-filters">
           <label className="category-filter" title="按资产分类筛选">
-            <select aria-label="筛选资产分类" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <select aria-label="筛选资产分类" value={computerOnly ? '__computers' : categoryFilter} onChange={(event) => { setComputerOnly(event.target.value === '__computers'); setCategoryFilter(event.target.value === '__computers' ? '' : event.target.value) }}>
               <option value="">全部分类</option>
+              <option value="__computers">全部电脑</option>
               {categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
             <span className="category-filter-chevron"><ChevronIcon /></span>

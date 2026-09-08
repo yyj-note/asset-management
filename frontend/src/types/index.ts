@@ -11,6 +11,7 @@ export interface LookupValue {
 
 export interface Asset {
   id: number
+  version: number
   qrToken: string
   assetTag: string
   name: string
@@ -45,6 +46,7 @@ export interface Asset {
 }
 
 export interface AssetPayload {
+  version?: number
   assetTag: string
   name: string
   ownershipDepartment: string

@@ -105,6 +105,8 @@ public class AuditLogController {
 
     private static String csv(Object value) {
         String text = value == null ? "" : String.valueOf(value);
+        if (!text.isEmpty() && ("=+-@\t\r\n".indexOf(text.charAt(0)) >= 0
+                || (!text.stripLeading().isEmpty() && "=+-@".indexOf(text.stripLeading().charAt(0)) >= 0))) text = "'" + text;
         return '"' + text.replace("\"", "\"\"") + '"';
     }
 

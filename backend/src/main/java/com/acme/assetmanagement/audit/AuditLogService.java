@@ -103,11 +103,8 @@ public class AuditLogService {
     }
 
     private String resolveIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        String value = forwarded == null || forwarded.isBlank()
-                ? request.getRemoteAddr()
-                : forwarded.split(",", 2)[0].trim();
-        return safe(value, null, 80);
+        // Production's forwarded-header filter uses the header overwritten by our ingress.
+        return safe(request.getRemoteAddr(), null, 80);
     }
 
     private String toJson(Map<String, ?> changes) {

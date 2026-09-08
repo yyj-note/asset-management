@@ -23,7 +23,7 @@ public class AssetImageController {
     @GetMapping("/{fileName}")
     public ResponseEntity<Resource> image(@PathVariable String fileName) {
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic().immutable())
+                .cacheControl(CacheControl.noStore())
                 .contentType(MediaType.parseMediaType(storage.mediaType(fileName)))
                 .body(storage.load(fileName));
     }

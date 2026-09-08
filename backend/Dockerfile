@@ -12,7 +12,9 @@ WORKDIR /app
 
 RUN apk add --no-cache fontconfig font-noto-cjk \
     && addgroup -S asset \
-    && adduser -S asset -G asset
+    && adduser -S asset -G asset \
+    && mkdir -p /app/data/asset-images \
+    && chown -R asset:asset /app/data
 COPY --from=build --chown=asset:asset /workspace/target/*.jar /app/app.jar
 
 USER asset

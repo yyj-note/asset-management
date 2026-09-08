@@ -18,6 +18,10 @@ public class Asset {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private long version;
+
     @Column(nullable = false, unique = true, length = 80)
     private String assetTag;
 
@@ -142,6 +146,7 @@ public class Asset {
     }
 
     public Long getId() { return id; }
+    public long getVersion() { return version; }
     public String getAssetTag() { return assetTag; }
     public void setAssetTag(String assetTag) { this.assetTag = assetTag; }
     public String getQrToken() { return qrToken; }

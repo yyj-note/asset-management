@@ -6,9 +6,10 @@ import { AssetTransfer } from './AssetTransfer'
 
 interface Props {
   onNotify: (text: string, kind?: 'ok' | 'error') => void
+  onImported: () => Promise<void>
 }
 
-export function SystemSettings({ onNotify }: Props) {
+export function SystemSettings({ onNotify, onImported }: Props) {
   const [setting, setSetting] = useState<QrSetting | null>(null)
   const [value, setValue] = useState('')
   const [loading, setLoading] = useState(true)
@@ -48,7 +49,7 @@ export function SystemSettings({ onNotify }: Props) {
       <div className="settings-guidance"><h3>域名迁移规则</h3><p>二维码打印后内容无法改变。更换域名时，请保留旧域名并通过 DNS 或 HTTP 301/302 跳转到新域名，旧标签才能继续使用。</p></div>
       <section className="settings-transfer-section">
         <div className="settings-section-title"><strong>导入导出</strong><span>下载统一 CSV 模板，集中处理资产数据</span></div>
-        <AssetTransfer onNotify={onNotify} />
+        <AssetTransfer onNotify={onNotify} onImported={onImported} />
       </section>
     </article></div>
   </section>

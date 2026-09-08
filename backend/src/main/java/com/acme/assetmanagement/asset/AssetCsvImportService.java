@@ -6,6 +6,7 @@ import com.acme.assetmanagement.common.ApiException;
 import com.acme.assetmanagement.lookup.LookupRepository;
 import com.acme.assetmanagement.lookup.LookupType;
 import com.acme.assetmanagement.lookup.LookupValue;
+import com.acme.assetmanagement.lookup.AssetProfile;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
@@ -33,16 +34,18 @@ public class AssetCsvImportService {
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
     private final Validator validator;
+    private final AssetImageStorageService imageStorage;
 
     public AssetCsvImportService(AssetRepository assetRepository, LookupRepository lookupRepository,
                                  AssetService assetService, AuditLogService auditLogService,
-                                 ObjectMapper objectMapper, Validator validator) {
+                                 ObjectMapper objectMapper, Validator validator, AssetImageStorageService imageStorage) {
         this.assetRepository = assetRepository;
         this.lookupRepository = lookupRepository;
         this.assetService = assetService;
         this.auditLogService = auditLogService;
         this.objectMapper = objectMapper;
         this.validator = validator;
+        this.imageStorage = imageStorage;
     }
 
     @Transactional(readOnly = true)
@@ -74,18 +77,7 @@ public class AssetCsvImportService {
             LookupValue category = resolveLookup(LookupType.CATEGORY, row.value("资产分类*"), true, createdLookups);
             LookupValue status = resolveLookup(LookupType.STATUS, row.value("资产状态*"), false, createdLookups);
             LookupValue location = resolveLookup(LookupType.LOCATION, row.value("存放位置*"), true, createdLookups);
-            AssetRequest request = new AssetRequest(
-                    row.value("资产编号*"), row.value("资产名称*"), clean(row.value("归属部门")), clean(row.value("CPU")),
-                    clean(row.value("内存")), clean(row.value("硬盘")), clean(row.value("显卡")),
-                    clean(row.value("厂家序列号")),
-                    clean(row.value("屏幕尺寸")), clean(row.value("分辨率")), clean(row.value("显示接口")), clean(row.value("订单号")),
-                    company.getId(), model.getId(), null, category.getId(), status.getId(), location.getId(),
-                    decimal(row.value("采购价格(元)"), row.rowNumber(), "采购价格(元)"),
-                    decimal(row.value("当前价值(元)"), row.rowNumber(), "当前价值(元)"),
-                    isCheckedOutStatus(row.value("资产状态*")), clean(row.value("领用人")),
-                    clean(row.value("图片地址")), null, clean(row.value("备注")),
-                    List.of(), null,
-                    relatedDevices(relatedDevicesValue(row), row.rowNumber()), List.of());
+            AssetRequest request = requestFor(row, company.getId(), model.getId(), category.getId(), status.getId(), location.getId());
             Set<ConstraintViolation<AssetRequest>> violations = validator.validate(request);
             if (!violations.isEmpty()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "第 " + row.rowNumber() + " 行：" + violations.iterator().next().getMessage());
@@ -135,6 +127,17 @@ public class AssetCsvImportService {
             validateDecimal(row, "当前价值(元)", errors, invalidRows);
             validateRelatedDevices(row, errors, invalidRows);
             validateBindingTags(row, fileTags, errors, invalidRows);
+            try {
+                validator.validate(requestFor(row, 1L, 1L, 1L, 1L, 1L)).forEach(violation ->
+                        add(errors, invalidRows, row, violation.getPropertyPath().toString(), violation.getMessage()));
+                for (String field : List.of("所属公司*", "资产分类*", "存放位置*")) {
+                    if (row.value(field).length() > 200) add(errors, invalidRows, row, field, "不能超过200个字符");
+                }
+                if (modelValue(row).length() > 200) add(errors, invalidRows, row, "设备型号*", "不能超过200个字符");
+                if (!row.value("图片地址").isBlank()) imageStorage.validateReference(row.value("图片地址"));
+            } catch (ApiException exception) {
+                add(errors, invalidRows, row, "资产字段", exception.getMessage());
+            }
 
             String status = row.value("资产状态*");
             if (!status.isBlank() && findStatus(status).isEmpty()) {
@@ -148,7 +151,51 @@ public class AssetCsvImportService {
             warnNewLookup(row, "资产分类*", LookupType.CATEGORY, warnings);
             warnNewLookup(row, "存放位置*", LookupType.LOCATION, warnings);
         }
+        validateBindingGraph(rows, errors, invalidRows);
         return new ValidationResult(errors, warnings, invalidRows);
+    }
+
+    private AssetRequest requestFor(ImportRow row, Long company, Long model, Long category, Long status, Long location) {
+        return new AssetRequest(row.value("资产编号*"), row.value("资产名称*"), clean(row.value("归属部门")),
+                clean(row.value("CPU")), clean(row.value("内存")), clean(row.value("硬盘")), clean(row.value("显卡")),
+                clean(row.value("厂家序列号")), clean(row.value("屏幕尺寸")), clean(row.value("分辨率")),
+                clean(row.value("显示接口")), clean(row.value("订单号")), company, model, null, category, status, location,
+                decimal(row.value("采购价格(元)"), row.rowNumber(), "采购价格(元)"),
+                decimal(row.value("当前价值(元)"), row.rowNumber(), "当前价值(元)"),
+                isCheckedOutStatus(row.value("资产状态*")), clean(row.value("领用人")), clean(row.value("图片地址")),
+                null, clean(row.value("备注")), List.of(), null,
+                relatedDevices(relatedDevicesValue(row), row.rowNumber()), List.of());
+    }
+
+    private void validateBindingGraph(List<ImportRow> rows, List<RowMessage> errors, Set<Integer> invalidRows) {
+        Map<String, AssetProfile> profiles = new HashMap<>();
+        Map<String, String> owners = new HashMap<>();
+        for (ImportRow row : rows) {
+            String name = row.value("资产分类*");
+            profiles.put(row.value("资产编号*"), lookupRepository.findByTypeAndNameIgnoreCase(LookupType.CATEGORY, name)
+                    .map(value -> value.getAssetProfile() == null ? AssetProfile.infer(value.getName()) : value.getAssetProfile())
+                    .orElseGet(() -> AssetProfile.infer(name)));
+        }
+        for (ImportRow row : rows) {
+            List<String[]> edges = new ArrayList<>();
+            for (String display : bindingTags(row.value("绑定显示器资产编号(分号分隔)"))) edges.add(new String[]{row.value("资产编号*"), display});
+            if (!row.value("绑定电脑资产编号").isBlank()) edges.add(new String[]{row.value("绑定电脑资产编号"), row.value("资产编号*")});
+            for (String[] edge : edges) {
+                for (String tag : edge) {
+                    if (!profiles.containsKey(tag)) assetRepository.findByAssetTagIgnoreCase(tag).ifPresent(asset -> {
+                        var category = asset.getCategory();
+                        profiles.put(tag, category.getAssetProfile() == null ? AssetProfile.infer(category.getName()) : category.getAssetProfile());
+                        asset.getBoundComputers().stream().findFirst().ifPresent(computer -> owners.put(tag, computer.getAssetTag()));
+                    });
+                }
+                if (profiles.get(edge[0]) != AssetProfile.COMPUTER || profiles.get(edge[1]) != AssetProfile.DISPLAY) {
+                    add(errors, invalidRows, row, "设备绑定", "绑定关系必须是电脑绑定显示器");
+                } else {
+                    String owner = owners.putIfAbsent(edge[1], edge[0]);
+                    if (owner != null && !owner.equals(edge[0])) add(errors, invalidRows, row, "设备绑定", "显示器“" + edge[1] + "”已绑定其他电脑");
+                }
+            }
+        }
     }
 
     private void validateBindingTags(ImportRow row, Set<String> fileTags, List<RowMessage> errors, Set<Integer> invalidRows) {

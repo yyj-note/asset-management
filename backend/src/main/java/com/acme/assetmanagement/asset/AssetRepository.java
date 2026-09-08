@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AssetRepository extends JpaRepository<Asset, Long> {
+    @Query("select count(distinct a.id) from Asset a left join a.imageUrls image where a.imageUrl = :reference or image = :reference")
+    long countImageReferences(@Param("reference") String reference);
     @EntityGraph(attributePaths = {"company", "model", "category", "status", "location"})
     @Query("""
             select a from Asset a

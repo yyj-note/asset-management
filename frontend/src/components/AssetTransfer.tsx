@@ -5,9 +5,10 @@ import { CheckIcon, DownloadIcon, UploadIcon } from './Icons'
 
 interface Props {
   onNotify: (text: string, kind?: 'ok' | 'error') => void
+  onImported: () => Promise<void>
 }
 
-export function AssetTransfer({ onNotify }: Props) {
+export function AssetTransfer({ onNotify, onImported }: Props) {
   const [downloading, setDownloading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<CsvImportPreview | null>(null)
@@ -43,6 +44,7 @@ export function AssetTransfer({ onNotify }: Props) {
       const result = await api.importAssetCsv(file)
       onNotify(`成功导入 ${result.importedCount} 项资产${result.createdLookupCount ? `，并新建 ${result.createdLookupCount} 个选项` : ''}`)
       setFile(null); setPreview(null); if (inputRef.current) inputRef.current.value = ''
+      await onImported()
     } catch (error) { onNotify(error instanceof Error ? error.message : 'CSV 导入失败', 'error') }
     finally { setImporting(false) }
   }

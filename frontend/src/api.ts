@@ -88,7 +88,7 @@ export const api = {
   createAsset: (payload: AssetPayload, cloneSourceId?: number) =>
     mutate<Asset>(`/api/assets${cloneSourceId ? `?cloneSourceId=${cloneSourceId}` : ''}`, { method: 'POST', body: JSON.stringify(payload) }),
   updateAsset: (id: number, payload: AssetPayload) =>
-    mutate<Asset>(`/api/assets/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    mutate<Asset>(`/api/assets/${id}`, { method: 'PUT', headers: { 'If-Match': String(payload.version) }, body: JSON.stringify({ ...payload, version: undefined }) }),
   returnAsset: (id: number) => mutate<Asset>(`/api/assets/${id}/return`, { method: 'POST' }),
   returnAssetByQrToken: (qrToken: string) =>
     mutate<Asset>(`/api/assets/qr/${encodeURIComponent(qrToken)}/return`, { method: 'POST' }),
