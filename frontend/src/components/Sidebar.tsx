@@ -1,4 +1,5 @@
 import type { AssetFilter } from '../types'
+import { version } from '../../package.json'
 import { BoxesIcon, ClipboardIcon, DashboardIcon, SettingsIcon, UsersIcon } from './Icons'
 
 export type AppSection = 'dashboard' | 'assets' | 'users' | 'logs' | 'settings'
@@ -14,7 +15,10 @@ export function Sidebar({ section, canManageUsers, onFilter, onSection }: Props)
   return (
     <aside className="sidebar">
       <div className="brand">
-        <strong>资产中心</strong>
+        <div className="brand-identity">
+          <strong>资产中心</strong>
+          <span className="app-version" aria-label={`系统版本 ${version}`}>v{version}</span>
+        </div>
       </div>
       <nav>
         <button aria-label="驾驶舱" className={`nav-item ${section === 'dashboard' ? 'active' : ''}`} onClick={() => onSection('dashboard')}>

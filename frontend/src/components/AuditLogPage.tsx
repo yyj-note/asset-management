@@ -85,4 +85,13 @@ function AuditDetail({ item, onClose }: { item: AuditLogItem; onClose: () => voi
 }
 
 function formatTime(value: string) { return new Date(value).toLocaleString('zh-CN', { hour12: false }) }
-function display(value: unknown) { return value === null || value === undefined || value === '' ? '空' : String(value) }
+function display(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '空'
+  if (Array.isArray(value)) return value.length ? value.map(display).join('；') : '空'
+  if (typeof value === 'object') {
+    const labels: Record<string, string> = { name: '名称', model: '型号', serialNumber: '序列号', orderNumber: '订单号', specification: '规格', quantity: '数量' }
+    return Object.entries(value).filter(([, content]) => content !== null && content !== '')
+      .map(([key, content]) => `${labels[key] || key}：${display(content)}`).join('，')
+  }
+  return String(value)
+}

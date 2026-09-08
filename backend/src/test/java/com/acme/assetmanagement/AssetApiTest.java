@@ -49,6 +49,7 @@ class AssetApiTest {
     @Autowired MockMvc mockMvc;
     @Autowired LookupRepository lookupRepository;
     @Autowired AssetRepository assetRepository;
+    @Autowired com.acme.assetmanagement.audit.AuditLogRepository auditLogRepository;
 
     @Test
     void staleEditCannotUndoReturn() throws Exception {
@@ -98,6 +99,9 @@ class AssetApiTest {
         mockMvc.perform(get(reference)).andExpect(status().isOk());
         mockMvc.perform(delete("/api/assets/{id}", clone.getId()).with(assetUser()).with(csrf())).andExpect(status().isNoContent());
         mockMvc.perform(get(reference)).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(second))
+                .andExpect(status().isConflict());
+        assertFalse(assetRepository.existsByAssetTagIgnoreCase("960000000002"));
         assertFalse(java.nio.file.Files.exists(java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
                 "asset-management-test-images", reference.substring(reference.lastIndexOf('/') + 1))));
     }
@@ -350,6 +354,20 @@ class AssetApiTest {
                 .andExpect(content().contentType(MediaType.IMAGE_PNG));
 
         assertTrue(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.CPU, "i7").isPresent());
+
+        mockMvc.perform(put("/api/assets/{id}", assetId)
+                        .header("If-Match", assetRepository.findById(assetId).orElseThrow().getVersion())
+                        .with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content(body.replace("M90", "M100").replace("更新测试", "再次更新")))
+                .andExpect(status().isOk());
+        String changes = auditLogRepository.findAll().stream()
+                .filter(log -> log.getAction() == com.acme.assetmanagement.audit.AuditAction.ASSET_UPDATE
+                        && Long.valueOf(assetId).equals(log.getTargetId()))
+                .max(java.util.Comparator.comparing(com.acme.assetmanagement.audit.AuditLog::getId))
+                .orElseThrow().getChangesJson();
+        assertTrue(changes.contains("M90") && changes.contains("M100"));
+        assertTrue(changes.contains("更新测试") && changes.contains("再次更新"));
+        assertTrue(changes.contains("/api/public/asset-images/"));
 
         String changedNumber = body.replace("202609010001", "202609010099");
         mockMvc.perform(put("/api/assets/{id}", assetId).header("If-Match", assetRepository.findById(assetId).orElseThrow().getVersion()).with(assetUser()).with(csrf())

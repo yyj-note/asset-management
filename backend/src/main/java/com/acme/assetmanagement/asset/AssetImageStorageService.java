@@ -30,18 +30,33 @@ public class AssetImageStorageService {
 
     private final Path directory;
     private final AssetRepository repository;
-    private final org.springframework.transaction.support.TransactionTemplate transactions;
+    private final AssetTagSequenceRepository sequenceRepository;
+    private final java.util.concurrent.locks.ReentrantLock imageChanges = new java.util.concurrent.locks.ReentrantLock();
 
     public AssetImageStorageService(@Value("${app.asset-images.directory:./data/asset-images}") String directory,
-                                   AssetRepository repository, org.springframework.transaction.PlatformTransactionManager manager) {
+                                   AssetRepository repository, AssetTagSequenceRepository sequenceRepository) {
         this.directory = Path.of(directory).toAbsolutePath().normalize();
         this.repository = repository;
-        this.transactions = new org.springframework.transaction.support.TransactionTemplate(manager);
-        this.transactions.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.sequenceRepository = sequenceRepository;
     }
 
     public List<String> persistReferences(List<String> references) {
+        if (!references.isEmpty()) lockImageChanges();
         return references.stream().map(this::persistReference).toList();
+    }
+
+    private void lockImageChanges() {
+        // Serialize database changes, then retain the local file lock through post-commit cleanup.
+        sequenceRepository.findLockedByDate(AssetTagGenerator.ALLOCATION_LOCK_DATE).orElseThrow();
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations().stream()
+                .noneMatch(sync -> sync instanceof ImageChangeLock)) {
+            imageChanges.lock();
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new ImageChangeLock());
+        }
+    }
+
+    private class ImageChangeLock implements org.springframework.transaction.support.TransactionSynchronization {
+        @Override public void afterCompletion(int status) { imageChanges.unlock(); }
     }
 
     public Resource load(String fileName) {
@@ -75,6 +90,12 @@ public class AssetImageStorageService {
         if (!reference.regionMatches(true, 0, "data:", 0, 5)) {
             if (reference.length() > MAX_IMAGE_URL_LENGTH) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "资产图片地址不能超过1024个字符");
+            }
+            if (reference.startsWith(PUBLIC_URL_PREFIX)) {
+                String fileName = reference.substring(PUBLIC_URL_PREFIX.length());
+                if (!STORED_FILE_NAME.matcher(fileName).matches() || !Files.isRegularFile(directory.resolve(fileName))) {
+                    throw new ApiException(HttpStatus.CONFLICT, "资产图片已不存在，请移除失效图片或重新上传");
+                }
             }
             return reference;
         }
@@ -116,14 +137,19 @@ public class AssetImageStorageService {
     public void removeAfterCommit(List<String> references) {
         var candidates = references.stream().filter(java.util.Objects::nonNull)
                 .filter(value -> value.startsWith(PUBLIC_URL_PREFIX)).distinct().toList();
+        if (candidates.isEmpty()) return;
+        lockImageChanges();
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                 new org.springframework.transaction.support.TransactionSynchronization() {
+                    private final java.util.List<String> unused = new java.util.ArrayList<>();
+                    @Override public void beforeCommit(boolean readOnly) {
+                        repository.flush();
+                        candidates.forEach(reference -> {
+                            if (repository.countImageReferences(reference) == 0) unused.add(reference);
+                        });
+                    }
                     @Override public void afterCommit() {
-                        transactions.executeWithoutResult(status -> candidates.forEach(reference -> {
-                            if (repository.countImageReferences(reference) == 0) {
-                                deleteFile(reference.substring(PUBLIC_URL_PREFIX.length()));
-                            }
-                        }));
+                        unused.forEach(reference -> deleteFile(reference.substring(PUBLIC_URL_PREFIX.length())));
                     }
                 });
     }

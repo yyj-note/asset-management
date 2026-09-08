@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, api } from './api'
 import type { Asset, AssetFilter, AssetPayload, AssetProfile, AuthUser, LookupType, LookupValue, Permission, Summary } from './types'
 import { AssetDetail } from './components/AssetDetail'
@@ -57,8 +57,10 @@ export default function App() {
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false)
   const [avatarSaving, setAvatarSaving] = useState(false)
   const [avatarRevision, setAvatarRevision] = useState(() => Date.now())
+  const navigationRevision = useRef(0)
 
   const showView = (nextSection: AppSection, nextPage: Page, mode: 'push' | 'replace' = 'push') => {
+    navigationRevision.current++
     setCreatedLookup(null)
     setSection(nextSection)
     setPage(nextPage)
@@ -127,25 +129,35 @@ export default function App() {
 
   useEffect(() => {
     if (!authUser) return
+    const restoreView = async (state: AppHistoryState | null) => {
+      if (!state?.assetManagement) return
+      const revision = ++navigationRevision.current
+      setCreatedLookup(null)
+      setSection(state.section)
+      if (state.page.name === 'list' || !state.page.asset) { setPage(state.page); return }
+      setPage({ name: 'list' })
+      try {
+        const asset = await api.getAsset(state.page.asset.id)
+        if (revision !== navigationRevision.current) return
+        const freshPage: Page = { ...state.page, asset }
+        setPage(freshPage)
+        window.history.replaceState({ ...state, page: freshPage }, '', window.location.href)
+      } catch (error) {
+        if (revision !== navigationRevision.current) return
+        notify(error instanceof Error ? error.message : '无法读取最新资产', 'error')
+        window.history.replaceState({ ...state, page: { name: 'list' } }, '', window.location.href)
+      }
+    }
     const current = window.history.state as AppHistoryState | null
     if (current?.assetManagement) {
-      setSection(current.section)
-      setPage(current.page)
+      void restoreView(current)
     } else {
       window.history.replaceState({ assetManagement: true, section: 'dashboard', page: { name: 'list' }, depth: 0 } satisfies AppHistoryState, '', window.location.href)
     }
-  }, [authUser])
-
-  useEffect(() => {
-    const restoreView = (event: PopStateEvent) => {
-      const state = event.state as AppHistoryState | null
-      if (!state?.assetManagement) return
-      setSection(state.section)
-      setPage(state.page)
-    }
-    window.addEventListener('popstate', restoreView)
-    return () => window.removeEventListener('popstate', restoreView)
-  }, [])
+    const onPopState = (event: PopStateEvent) => { void restoreView(event.state as AppHistoryState | null) }
+    window.addEventListener('popstate', onPopState)
+    return () => { navigationRevision.current++; window.removeEventListener('popstate', onPopState) }
+  }, [authUser?.id])
 
   useEffect(() => {
     window.scrollTo(0, 0)

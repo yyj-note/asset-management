@@ -114,6 +114,7 @@ const loadImage = (source: string) => new Promise<HTMLImageElement>((resolve, re
 const dataUrlBytes = (source: string) => Math.ceil((source.split(',')[1]?.length || 0) * 3 / 4)
 
 async function prepareImage(file: File) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) throw new Error('仅支持 JPG、PNG 或 WebP 图片')
   if (file.size > MAX_CAMERA_SOURCE_BYTES) throw new Error('照片不能超过 20 MB')
   const source = await readImage(file)
   if (file.size <= MAX_IMAGE_BYTES) return source
@@ -141,6 +142,8 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
     return initial
   })
   const [imageError, setImageError] = useState('')
+  const [processingImages, setProcessingImages] = useState(false)
+  const imageProcessingRef = useRef(false)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const set = <K extends keyof AssetPayload>(key: K, value: AssetPayload[K]) => setForm((current) => ({ ...current, [key]: value }))
@@ -159,12 +162,15 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
   }, [createdLookup])
 
   const handleImages = async (files: File[]) => {
+    if (imageProcessingRef.current) return
     setImageError('')
     if (files.length === 0) return
     const remaining = 5 - form.imageUrls.length
     if (remaining <= 0) { setImageError('资产图片最多上传5张'); return }
     const selected = files.slice(0, remaining)
     if (selected.some((file) => !file.type.startsWith('image/'))) { setImageError('请选择图片文件'); return }
+    imageProcessingRef.current = true
+    setProcessingImages(true)
     try {
       const prepared: string[] = []
       for (const file of selected) prepared.push(await prepareImage(file))
@@ -175,6 +181,9 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
       if (files.length > remaining) setImageError(`最多上传5张，已添加前${remaining}张`)
     } catch (reason) {
       setImageError(reason instanceof Error ? reason.message : '照片处理失败，请重新拍摄')
+    } finally {
+      imageProcessingRef.current = false
+      setProcessingImages(false)
     }
   }
 
@@ -198,7 +207,7 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
   const modelField = (label: string) => <label><span>{label} *</span><EditableCombobox editable required value={form.modelName} selectedId={form.modelId} placeholder="输入或选择型号" options={lookups.filter((item) => item.type === 'MODEL').map((item) => ({ id: item.id, label: item.name }))} onChange={(value, id) => setForm((current) => ({ ...current, modelName: value, modelId: typeof id === 'number' ? id : null }))} onDelete={async (option: ComboboxOption) => onDeleteLookup(lookups.find((item) => item.id === option.id)!)} /></label>
 
   return <section className="invoice-form-page">
-    <div className="invoice-form-outer"><form className="invoice-form-card symmetric-asset-form" onSubmit={async (event) => { event.preventDefault(); await onSave(form) }}>
+    <div className="invoice-form-outer"><form className="invoice-form-card symmetric-asset-form" onSubmit={async (event) => { event.preventDefault(); if (!imageProcessingRef.current && !saving) await onSave(form) }}>
       <div className="invoice-form-scroll-body">
       <div className="invoice-form-heading"><div><h2>{clone ? '克隆资产' : asset ? '编辑资产' : '新增资产'}</h2><p>资产编号：{form.assetTag || '保存后按日期与当日流水自动生成'} · {new Date().toLocaleDateString('zh-CN')}</p></div><span className="form-mode">{clone ? 'CLONE' : asset ? 'EDIT' : 'CREATE'}</span></div>
 
@@ -281,13 +290,13 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
       <section className="form-section">
         <div className="form-section-head"><div><h3>图片与备注</h3><p>左右等宽，集中保存补充资料</p></div></div>
         <div className="symmetric-media-grid">
-          <div><div className="asset-image-title"><span className="field-title">资产图片</span><b>{form.imageUrls.length} / 5</b></div><div className="asset-image-editor"><div className="asset-image-grid">{form.imageUrls.map((source, index) => <div className="asset-image-thumb" key={`${source.slice(-24)}-${index}`}><img src={source} alt={`${form.name || '资产'}图片${index + 1}`} /><span>{index === 0 ? '封面' : `图片${index + 1}`}</span><button type="button" title={`删除第${index + 1}张图片`} onClick={() => removeImage(index)}><TrashIcon /></button></div>)}{form.imageUrls.length < 5 && <button type="button" className="asset-image-add" onClick={() => cameraRef.current?.click()}><UploadIcon /><strong>拍照添加</strong><span>还可添加 {5 - form.imageUrls.length} 张</span></button>}</div><div className="asset-image-actions"><button type="button" onClick={() => cameraRef.current?.click()}>手机拍照</button><button type="button" onClick={() => galleryRef.current?.click()}>从相册或文件选择</button><span>第1张作为列表封面，大图自动压缩</span></div><input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const input = event.currentTarget; void handleImages(Array.from(input.files || [])).finally(() => { input.value = '' }) }} /><input ref={galleryRef} hidden multiple type="file" accept="image/*" onChange={(event) => { const input = event.currentTarget; void handleImages(Array.from(input.files || [])).finally(() => { input.value = '' }) }} /></div>{imageError && <small className="field-error">{imageError}</small>}</div>
+          <div><div className="asset-image-title"><span className="field-title">资产图片</span><b>{form.imageUrls.length} / 5</b></div><div className="asset-image-editor"><div className="asset-image-grid">{form.imageUrls.map((source, index) => <div className="asset-image-thumb" key={`${source.slice(-24)}-${index}`}><img src={source} alt={`${form.name || '资产'}图片${index + 1}`} /><span>{index === 0 ? '封面' : `图片${index + 1}`}</span><button type="button" title={`删除第${index + 1}张图片`} onClick={() => removeImage(index)}><TrashIcon /></button></div>)}{form.imageUrls.length < 5 && <button type="button" className="asset-image-add" onClick={() => cameraRef.current?.click()}><UploadIcon /><strong>拍照添加</strong><span>还可添加 {5 - form.imageUrls.length} 张</span></button>}</div><div className="asset-image-actions"><button type="button" onClick={() => cameraRef.current?.click()}>手机拍照</button><button type="button" onClick={() => galleryRef.current?.click()}>从相册或文件选择</button><span>第1张作为列表封面，大图自动压缩</span></div><input ref={cameraRef} hidden type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { const input = event.currentTarget; void handleImages(Array.from(input.files || [])).finally(() => { input.value = '' }) }} /><input ref={galleryRef} hidden multiple type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const input = event.currentTarget; void handleImages(Array.from(input.files || [])).finally(() => { input.value = '' }) }} /></div>{imageError && <small className="field-error">{imageError}</small>}</div>
           <label><span>备注</span><textarea maxLength={2000} rows={7} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="记录保修、附件或其他说明…" /></label>
         </div>
       </section>
       </div>
 
-      <div className="invoice-form-actions"><button type="button" className="button ghost" onClick={onCancel}>取消</button><button className="button primary" disabled={saving}><SaveIcon />{saving ? '保存中…' : clone ? '创建克隆资产' : asset ? '保存修改' : '创建资产'}</button></div>
+      <div className="invoice-form-actions"><button type="button" className="button ghost" onClick={onCancel}>取消</button><button className="button primary" disabled={saving || processingImages}><SaveIcon />{processingImages ? '图片处理中…' : saving ? '保存中…' : clone ? '创建克隆资产' : asset ? '保存修改' : '创建资产'}</button></div>
     </form></div>
   </section>
 }

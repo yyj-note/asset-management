@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
-@Transactional
+@Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
 public class AssetService {
     private final AssetRepository assetRepository;
     private final LookupRepository lookupRepository;
@@ -163,11 +163,12 @@ public class AssetService {
         values.put("领用人", asset.getAssignedTo());
         values.put("采购价格", asset.getPurchasePrice());
         values.put("当前价值", asset.getCurrentValue());
-        values.put("随附配件数量", asset.getRelatedDevices().stream().mapToInt(RelatedDevice::getQuantity).sum());
-        values.put("绑定显示器数量", asset.getBoundDisplays().size());
+        values.put("随附配件", asset.getRelatedDevices().stream().map(AssetResponse.RelatedDeviceResponse::from).toList());
+        values.put("配件", asset.getAccessories().stream().map(AssetResponse.AccessoryResponse::from).toList());
+        values.put("绑定显示器", asset.getBoundDisplays().stream().map(Asset::getAssetTag).sorted().toList());
         values.put("绑定电脑", asset.getBoundComputers().stream().findFirst().map(Asset::getAssetTag).orElse(""));
-        values.put("图片", asset.getImageUrl() == null ? "无" : "已上传");
-        values.put("备注", asset.getNotes() == null ? "无" : "已填写");
+        values.put("图片", imageReferences(asset).stream().distinct().toList());
+        values.put("备注", asset.getNotes());
         return values;
     }
 

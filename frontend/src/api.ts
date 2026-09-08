@@ -67,6 +67,7 @@ async function download(path: string, fallbackFilename: string) {
 }
 
 export const api = {
+  getAsset: (id: number) => request<Asset>(`/api/assets/${id}`),
   getPublicAsset: (qrToken: string) => request<PublicAsset>(`/api/public/assets/${encodeURIComponent(qrToken)}`),
   me: () => request<AuthUser>('/api/auth/me'),
   login: (username: string, password: string) =>

@@ -59,7 +59,7 @@ public class AssetCsvImportService {
                 validation.errors().isEmpty());
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public ImportResponse commit(MultipartFile file) {
         ParsedFile parsed = parse(file);
         ValidationResult validation = validateRows(parsed.rows());
