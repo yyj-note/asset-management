@@ -12,7 +12,7 @@ const actionOptions = [
   ['ASSET_UPDATE', '编辑资产'], ['ASSET_RETURN', '归还资产'], ['ASSET_DELETE', '删除资产'],
   ['LOOKUP_CREATE', '新建选项'], ['LOOKUP_DELETE', '删除选项'], ['USER_CREATE', '创建用户'],
   ['USER_PASSWORD_RESET', '重置密码'], ['USER_DELETE', '删除用户'], ['SETTING_UPDATE', '修改设置'],
-  ['CSV_TEMPLATE_EXPORT', '下载CSV模板'], ['CSV_IMPORT', '导入CSV'],
+  ['CSV_TEMPLATE_EXPORT', '导出资产数据'], ['CSV_IMPORT', '导入CSV'],
 ]
 
 export function AuditLogPage({ onNotify }: Props) {

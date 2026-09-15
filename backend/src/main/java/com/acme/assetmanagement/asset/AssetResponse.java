@@ -38,6 +38,7 @@ public record AssetResponse(
         AssetLinkResponse boundComputer,
         List<RelatedDeviceResponse> relatedDevices,
         List<AccessoryResponse> accessories,
+        List<CustomParameterResponse> customParameters,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -59,6 +60,7 @@ public record AssetResponse(
                 asset.getBoundComputers().stream().findFirst().map(AssetLinkResponse::from).orElse(null),
                 asset.getRelatedDevices().stream().map(RelatedDeviceResponse::from).toList(),
                 asset.getAccessories().stream().map(AccessoryResponse::from).toList(),
+                asset.getCustomParameters().stream().map(CustomParameterResponse::from).toList(),
                 asset.getCreatedAt(), asset.getUpdatedAt()
         );
     }
@@ -82,6 +84,12 @@ public record AssetResponse(
     public record AccessoryResponse(String name, String specification, int quantity) {
         static AccessoryResponse from(AssetAccessory accessory) {
             return new AccessoryResponse(accessory.getName(), accessory.getSpecification(), accessory.getQuantity());
+        }
+    }
+
+    public record CustomParameterResponse(String name, String value) {
+        static CustomParameterResponse from(AssetCustomParameter parameter) {
+            return new CustomParameterResponse(parameter.getName(), parameter.getValue());
         }
     }
 }

@@ -6,6 +6,8 @@ import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 import com.acme.assetmanagement.lookup.LookupRepository;
 import com.acme.assetmanagement.lookup.LookupType;
+import com.acme.assetmanagement.lookup.LookupValue;
+import com.acme.assetmanagement.lookup.AssetProfile;
 import com.acme.assetmanagement.asset.AssetRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -161,11 +163,11 @@ class AssetApiTest {
     }
 
     @Test
-    void downloadsUtf8CsvImportTemplateWithoutAssetData() throws Exception {
-        byte[] csv = mockMvc.perform(get("/api/assets/export/template.csv").with(assetUser()))
+    void downloadsUtf8CsvWithAllAssetData() throws Exception {
+        byte[] csv = mockMvc.perform(get("/api/assets/export.csv").with(assetUser()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("text/csv;charset=UTF-8"))
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("asset-import-template.csv")))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("asset-data.csv")))
                 .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
                 .andReturn().getResponse().getContentAsByteArray();
 
@@ -177,9 +179,10 @@ class AssetApiTest {
         assertTrue(text.contains("资产编号*,资产名称*,所属公司*,归属部门"));
         assertTrue(text.contains("显卡,厂家序列号,屏幕尺寸,分辨率,显示接口,订单号,采购价格(元)"));
         assertTrue(text.contains("随附配件(JSON)"));
+        assertTrue(text.contains("自定义参数(JSON)"));
         assertFalse(text.contains("关联设备(JSON)"));
-        assertFalse(text.contains("202609010001"));
-        assertEquals(1, text.lines().count());
+        assetRepository.findAll().forEach(asset -> assertTrue(text.contains(asset.getAssetTag())));
+        assertEquals(assetRepository.count() + 1, text.lines().count());
     }
 
     @Test
@@ -382,6 +385,48 @@ class AssetApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(tooManyImages))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("资产图片最多上传5张"));
+    }
+
+    @Test
+    void createsGeneralAssetWithFreeFormCustomParameters() throws Exception {
+        long companyId = lookupRepository.findByTypeOrderByNameAsc(LookupType.COMPANY).getFirst().getId();
+        long modelId = lookupRepository.findByTypeOrderByNameAsc(LookupType.MODEL).getFirst().getId();
+        long categoryId = lookupRepository.save(new LookupValue(LookupType.CATEGORY, "交换机", AssetProfile.GENERAL)).getId();
+        long statusId = lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "可领用").orElseThrow().getId();
+        long locationId = lookupRepository.findByTypeOrderByNameAsc(LookupType.LOCATION).getFirst().getId();
+        String body = """
+                {"assetTag":"202600000088","name":"3楼接入交换机","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"checkedOut":false,"orderNumber":"PO-2026-0915",
+                 "customParameters":[{"name":"管理IP","value":"192.168.10.20"},{"name":"端口数","value":"24口"}]}
+                """.formatted(companyId, modelId, categoryId, statusId, locationId);
+
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.orderNumber").value("PO-2026-0915"))
+                .andExpect(jsonPath("$.customParameters[0].name").value("管理IP"))
+                .andExpect(jsonPath("$.customParameters[0].value").value("192.168.10.20"))
+                .andExpect(jsonPath("$.customParameters[1].name").value("端口数"));
+
+        var stored = assetRepository.findByAssetTagIgnoreCase("202600000088").orElseThrow();
+        assertEquals(2, stored.getCustomParameters().size());
+        assertEquals("24口", stored.getCustomParameters().get(1).getValue());
+
+        String csv = mockMvc.perform(get("/api/assets/export.csv").with(assetUser()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(csv.contains("自定义参数(JSON)"));
+        assertTrue(csv.contains("管理IP"));
+        assertTrue(csv.contains("192.168.10.20"));
+
+        String tooManyParameters = """
+                {"assetTag":"202600000089","name":"参数超限设备","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"checkedOut":false,
+                 "customParameters":[{"name":"参数1","value":"1"},{"name":"参数2","value":"2"},
+                 {"name":"参数3","value":"3"},{"name":"参数4","value":"4"},
+                 {"name":"参数5","value":"5"},{"name":"参数6","value":"6"}]}
+                """.formatted(companyId, modelId, categoryId, statusId, locationId);
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(tooManyParameters))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("自定义参数最多5项"));
     }
 
     @Test

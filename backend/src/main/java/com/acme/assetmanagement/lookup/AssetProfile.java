@@ -3,7 +3,7 @@ package com.acme.assetmanagement.lookup;
 public enum AssetProfile {
     COMPUTER("电脑设备"),
     DISPLAY("显示设备"),
-    GENERAL("普通设备");
+    GENERAL("通用设备");
 
     private final String label;
 

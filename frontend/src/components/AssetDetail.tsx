@@ -47,11 +47,19 @@ export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onE
     ['显示器型号', asset.model.name, '屏幕尺寸', asset.screenSize || '—'],
     ['分辨率', asset.displayResolution || '—', '显示接口', asset.displayInterface || '—'],
   ] : [
-    ['设备型号', asset.model.name, '设备类型', '普通设备'],
+    ['设备型号', asset.model.name, '订单号', asset.orderNumber || '—'],
+    ['厂家序列号', asset.manufacturerSerialNumber || '—', '设备类型', '通用设备'],
   ]
+  const customParameterRows: string[][] = []
+  for (let index = 0; index < (asset.customParameters || []).length; index += 2) {
+    const current = asset.customParameters[index]
+    const next = asset.customParameters[index + 1]
+    customParameterRows.push([current.name, current.value, next?.name || '', next?.value || ''])
+  }
   const parameterRows = [
     ...identityRows,
     ...deviceRows,
+    ...customParameterRows,
     ['所属公司', asset.company.name, '归属部门', asset.ownershipDepartment || '未设置'],
     ['存放位置', asset.location.name, '领用情况', asset.checkedOut ? `${state} · ${asset.assignedTo || '未填写领用人'}` : state],
     ['创建时间', time(asset.createdAt), '更新时间', time(asset.updatedAt)],
@@ -89,7 +97,7 @@ export function AssetDetail({ asset, canEdit, canReturn, canDelete, onClose, onE
 
           <div className="record-table">
             <div className="record-table-head"><span>参数名称</span><strong>参数内容</strong><span>参数名称</span><strong>参数内容</strong></div>
-            {parameterRows.map(([labelA, valueA, labelB, valueB]) => <div className="record-table-row" key={labelA}>
+            {parameterRows.map(([labelA, valueA, labelB, valueB], index) => <div className="record-table-row" key={`${labelA}-${index}`}>
               <span>{labelA}</span><strong>{valueA}</strong><span>{labelB}</span><strong>{valueB}</strong>
             </div>)}
           </div>

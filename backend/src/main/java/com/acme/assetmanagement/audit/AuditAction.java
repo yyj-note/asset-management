@@ -18,7 +18,7 @@ public enum AuditAction {
     AVATAR_DELETE("用户", "删除头像"),
     USER_DELETE("用户", "删除用户"),
     SETTING_UPDATE("设置", "修改设置"),
-    CSV_TEMPLATE_EXPORT("导入导出", "下载CSV模板"),
+    CSV_TEMPLATE_EXPORT("导入导出", "导出资产数据"),
     CSV_IMPORT("导入导出", "导入CSV");
 
     private final String module;

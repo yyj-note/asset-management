@@ -165,6 +165,7 @@ public class AssetService {
         values.put("当前价值", asset.getCurrentValue());
         values.put("随附配件", asset.getRelatedDevices().stream().map(AssetResponse.RelatedDeviceResponse::from).toList());
         values.put("配件", asset.getAccessories().stream().map(AssetResponse.AccessoryResponse::from).toList());
+        values.put("自定义参数", asset.getCustomParameters().stream().map(AssetResponse.CustomParameterResponse::from).toList());
         values.put("绑定显示器", asset.getBoundDisplays().stream().map(Asset::getAssetTag).sorted().toList());
         values.put("绑定电脑", asset.getBoundComputers().stream().findFirst().map(Asset::getAssetTag).orElse(""));
         values.put("图片", imageReferences(asset).stream().distinct().toList());
@@ -265,6 +266,9 @@ public class AssetService {
                 .map(accessory -> new AssetAccessory(accessory.name().trim(), clean(accessory.specification()),
                         accessory.quantity()))
                 .toList());
+        asset.setCustomParameters(request.customParameters() == null ? List.of() : request.customParameters().stream()
+                .map(parameter -> new AssetCustomParameter(parameter.name().trim(), parameter.value().trim()))
+                .toList());
     }
 
     void bindByAssetTags(Long assetId, List<String> displayTags, String computerTag) {
@@ -296,7 +300,7 @@ public class AssetService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "电脑资产不能绑定到另一台电脑");
         }
         if (profile == AssetProfile.GENERAL && (!uniqueDisplayIds.isEmpty() || computerId != null)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "普通设备不支持电脑与显示器绑定");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "通用设备不支持电脑与显示器绑定");
         }
 
         if (replaceExisting) unlinkAll(asset);

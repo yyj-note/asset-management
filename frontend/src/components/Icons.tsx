@@ -18,6 +18,7 @@ export const ChevronIcon = (props: Props) => <Icon {...props}><path d="m9 18 6-6
 export const UploadIcon = (props: Props) => <Icon {...props}><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></Icon>
 export const DownloadIcon = (props: Props) => <Icon {...props}><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></Icon>
 export const MenuIcon = (props: Props) => <Icon {...props}><path d="M4 6h16M4 12h16M4 18h16"/></Icon>
+export const SidebarPanelIcon = (props: Props) => <Icon {...props}><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></Icon>
 export const DashboardIcon = (props: Props) => <Icon {...props}><path d="M4 13a8 8 0 1 1 8 8v-8Z"/><path d="M12 3v10h10"/></Icon>
 export const ReturnIcon = (props: Props) => <Icon {...props}><path d="m9 14-4-4 4-4"/><path d="M5 10h9a5 5 0 0 1 5 5v2"/></Icon>
 export const FolderIcon = (props: Props) => <Icon {...props}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></Icon>

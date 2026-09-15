@@ -164,7 +164,8 @@ public class AssetCsvImportService {
                 decimal(row.value("当前价值(元)"), row.rowNumber(), "当前价值(元)"),
                 isCheckedOutStatus(row.value("资产状态*")), clean(row.value("领用人")), clean(row.value("图片地址")),
                 null, clean(row.value("备注")), List.of(), null,
-                relatedDevices(relatedDevicesValue(row), row.rowNumber()), List.of());
+                relatedDevices(relatedDevicesValue(row), row.rowNumber()), List.of(),
+                customParameters(row.value("自定义参数(JSON)"), row.rowNumber()));
     }
 
     private void validateBindingGraph(List<ImportRow> rows, List<RowMessage> errors, Set<Integer> invalidRows) {
@@ -264,6 +265,24 @@ public class AssetCsvImportService {
             return devices;
         } catch (Exception exception) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "第 " + rowNumber + " 行随附配件 JSON 格式不正确");
+        }
+    }
+
+    private List<AssetRequest.CustomParameterRequest> customParameters(String value, int rowNumber) {
+        if (value == null || value.isBlank()) return List.of();
+        try {
+            List<AssetRequest.CustomParameterRequest> parameters = objectMapper.readValue(value,
+                    new TypeReference<List<AssetRequest.CustomParameterRequest>>() {});
+            if (parameters.size() > 5) throw new IllegalArgumentException();
+            for (AssetRequest.CustomParameterRequest parameter : parameters) {
+                if (parameter.name() == null || parameter.name().isBlank()
+                        || parameter.value() == null || parameter.value().isBlank()) {
+                    throw new IllegalArgumentException();
+                }
+            }
+            return parameters;
+        } catch (Exception exception) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "第 " + rowNumber + " 行自定义参数 JSON 格式不正确");
         }
     }
 

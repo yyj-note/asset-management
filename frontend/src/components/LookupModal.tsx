@@ -30,7 +30,7 @@ export function LookupModal({ type, loading, onClose, onCreate }: Props) {
         <form onSubmit={async (event) => { event.preventDefault(); if (name.trim()) await onCreate(name.trim(), type === 'CATEGORY' ? assetProfile : undefined) }}>
           <label className="field-label" htmlFor="lookup-name">{lookupLabels[type]}名称</label>
           <input id="lookup-name" autoFocus maxLength={120} value={name} onChange={(event) => setName(event.target.value)} placeholder={`例如：${type === 'LOCATION' ? '上海办公室' : '请输入名称'}`} />
-          {type === 'CATEGORY' && <><label className="field-label lookup-profile-label" htmlFor="lookup-profile">参数模板</label><select id="lookup-profile" value={assetProfile} onChange={(event) => setAssetProfile(event.target.value as AssetProfile)}><option value="COMPUTER">电脑设备</option><option value="DISPLAY">显示设备</option><option value="GENERAL">普通设备</option></select></>}
+          {type === 'CATEGORY' && <><label className="field-label lookup-profile-label" htmlFor="lookup-profile">参数模板</label><select id="lookup-profile" value={assetProfile} onChange={(event) => setAssetProfile(event.target.value as AssetProfile)}><option value="COMPUTER">电脑设备</option><option value="DISPLAY">显示设备</option><option value="GENERAL">通用设备</option></select></>}
           <p className="field-help">保存后会自动加入下拉选项，并在当前资产表单中选中。</p>
           <div className="modal-actions">
             <button type="button" className="button ghost" onClick={onClose}>取消</button>

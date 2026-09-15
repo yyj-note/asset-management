@@ -41,6 +41,7 @@ export interface Asset {
   boundComputer: AssetLink | null
   relatedDevices: RelatedDevice[]
   accessories: AssetAccessory[]
+  customParameters: CustomParameter[]
   createdAt: string
   updatedAt: string
 }
@@ -76,6 +77,7 @@ export interface AssetPayload {
   boundComputerId: number | null
   relatedDevices: RelatedDevice[]
   accessories: AssetAccessory[]
+  customParameters: CustomParameter[]
 }
 
 export interface AssetLink {
@@ -99,6 +101,11 @@ export interface AssetAccessory {
   name: string
   specification: string
   quantity: number
+}
+
+export interface CustomParameter {
+  name: string
+  value: string
 }
 
 export interface PublicAsset {

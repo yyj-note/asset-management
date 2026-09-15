@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Asset } from '../types'
 import { ChevronIcon, CloseIcon } from './Icons'
 
@@ -23,9 +24,15 @@ export function AssetImageLightbox({ asset, initialIndex = 0, onClose }: Props) 
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [asset, images.length, onClose])
+  useEffect(() => {
+    if (!asset || images.length === 0) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [asset, images.length])
 
   if (!asset || images.length === 0) return null
-  return <div className="image-lightbox" role="dialog" aria-modal="true" aria-label={`${asset.name} 图片预览`} onMouseDown={onClose}>
+  return createPortal(<div className="image-lightbox" role="dialog" aria-modal="true" aria-label={`${asset.name} 图片预览`} onMouseDown={onClose}>
     <div className="image-lightbox-card" onMouseDown={(event) => event.stopPropagation()}>
       <button className="image-lightbox-close" aria-label="关闭图片预览" onClick={onClose}><CloseIcon /></button>
       {images.length > 1 && <button className="image-lightbox-nav previous" aria-label="上一张" onClick={() => setIndex((current) => (current - 1 + images.length) % images.length)}><ChevronIcon /></button>}
@@ -34,5 +41,5 @@ export function AssetImageLightbox({ asset, initialIndex = 0, onClose }: Props) 
       <div className="image-lightbox-meta"><strong>{asset.name}</strong><span>{asset.assetTag} · {index + 1} / {images.length}</span></div>
       {images.length > 1 && <div className="image-lightbox-thumbs">{images.map((source, imageIndex) => <button className={imageIndex === index ? 'active' : ''} onClick={() => setIndex(imageIndex)} key={`${source.slice(-24)}-${imageIndex}`}><img src={source} alt={`切换到第${imageIndex + 1}张图片`} /></button>)}</div>}
     </div>
-  </div>
+  </div>, document.body)
 }

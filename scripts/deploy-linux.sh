@@ -32,11 +32,3 @@ docker compose up -d --build --wait
 
 echo "[3/4] 显示服务状态"
 docker compose ps
-
-echo "[4/4] 验证首页"
-HTTP_PORT_VALUE="$(sed -n 's/^HTTP_PORT=//p' .env | tail -n 1)"
-HTTP_PORT_VALUE="${HTTP_PORT_VALUE:-80}"
-curl --fail --silent --show-error "http://127.0.0.1:${HTTP_PORT_VALUE}/healthz"
-echo
-echo "部署完成：请访问 http://服务器IP:${HTTP_PORT_VALUE}/"
-

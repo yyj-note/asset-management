@@ -113,6 +113,11 @@ public class Asset {
     @OrderColumn(name = "sort_order")
     private List<AssetAccessory> accessories = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "asset_custom_parameters", joinColumns = @JoinColumn(name = "asset_id"))
+    @OrderColumn(name = "sort_order")
+    private List<AssetCustomParameter> customParameters = new ArrayList<>();
+
     @ManyToMany
     @JoinTable(
             name = "asset_display_bindings",
@@ -203,6 +208,8 @@ public class Asset {
     public void setRelatedDevices(List<RelatedDevice> relatedDevices) { this.relatedDevices.clear(); this.relatedDevices.addAll(relatedDevices); }
     public List<AssetAccessory> getAccessories() { return accessories; }
     public void setAccessories(List<AssetAccessory> accessories) { this.accessories.clear(); this.accessories.addAll(accessories); }
+    public List<AssetCustomParameter> getCustomParameters() { return customParameters; }
+    public void setCustomParameters(List<AssetCustomParameter> customParameters) { this.customParameters.clear(); this.customParameters.addAll(customParameters); }
     public Set<Asset> getBoundDisplays() { return boundDisplays; }
     public Set<Asset> getBoundComputers() { return boundComputers; }
     public LocalDateTime getCreatedAt() { return createdAt; }

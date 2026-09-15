@@ -107,7 +107,7 @@ export function PublicAssetPage({ qrToken }: Props) {
     ['显示接口', value(asset.displayInterface)], ['订单号', value(asset.orderNumber)],
   ] : [
     ['设备型号', value(asset.computerModel)],
-    ['订单号', value(asset.orderNumber)], ['设备模板', '普通设备'],
+    ['订单号', value(asset.orderNumber)], ['设备模板', '通用设备'],
   ]
   const fields = [
     ...deviceFields,
@@ -135,7 +135,7 @@ export function PublicAssetPage({ qrToken }: Props) {
       {asset.assetProfile !== 'GENERAL' && <section className="public-related-section">
         <div className="public-section-title"><h2>设备绑定</h2><span>{boundAssets.length} 项</span></div>
         {boundAssets.length === 0
-          ? <p className="public-empty">{asset.assetProfile === 'DISPLAY' ? '暂未绑定电脑' : asset.assetProfile === 'COMPUTER' ? '暂未绑定显示器' : '普通设备无需绑定'}</p>
+          ? <p className="public-empty">{asset.assetProfile === 'DISPLAY' ? '暂未绑定电脑' : asset.assetProfile === 'COMPUTER' ? '暂未绑定显示器' : '通用设备无需绑定'}</p>
           : <div className="public-related-list">{boundAssets.map((device) => <div className="public-related-item" key={device.assetTag}>
               <div><strong>{device.name}</strong><span>{device.assetTag}</span></div>
               <div><span>分类</span><strong>{value(device.category)}</strong></div>

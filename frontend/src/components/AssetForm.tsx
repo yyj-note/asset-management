@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Asset, AssetPayload, AssetProfile, LookupType, LookupValue, RelatedDevice } from '../types'
+import type { Asset, AssetPayload, AssetProfile, CustomParameter, LookupType, LookupValue, RelatedDevice } from '../types'
 import { lookupLabels } from '../types'
 import { PlusIcon, SaveIcon, TrashIcon, UploadIcon } from './Icons'
 import { EditableCombobox } from './EditableCombobox'
@@ -23,7 +23,7 @@ const emptyPayload = (): AssetPayload => ({
   screenSize: '', displayResolution: '', displayInterface: '', orderNumber: '',
   companyId: null, modelId: null, modelName: '', categoryId: null, statusId: null, locationId: null,
   purchasePrice: null, currentValue: null, checkedOut: false, assignedTo: '',
-  imageUrl: '', imageUrls: [], notes: '', boundDisplayIds: [], boundComputerId: null, relatedDevices: [], accessories: [],
+  imageUrl: '', imageUrls: [], notes: '', boundDisplayIds: [], boundComputerId: null, relatedDevices: [], accessories: [], customParameters: [],
 })
 
 function fromAsset(asset: Asset | null, clone = false): AssetPayload {
@@ -51,6 +51,7 @@ function fromAsset(asset: Asset | null, clone = false): AssetPayload {
       ...(asset.accessories || []).map((item) => ({ name: item.name, model: '', serialNumber: '', orderNumber: '', specification: item.specification, quantity: item.quantity })),
     ],
     accessories: [],
+    customParameters: (asset.customParameters || []).map((parameter) => ({ ...parameter })),
   }
 }
 
@@ -193,6 +194,7 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
   })
 
   const updateDevice = (index: number, change: Partial<RelatedDevice>) => set('relatedDevices', form.relatedDevices.map((item, itemIndex) => itemIndex === index ? { ...item, ...change } : item))
+  const updateCustomParameter = (index: number, change: Partial<CustomParameter>) => set('customParameters', form.customParameters.map((item, itemIndex) => itemIndex === index ? { ...item, ...change } : item))
   const selectedCategory = lookups.find((item) => item.type === 'CATEGORY' && item.id === form.categoryId)
   const profile = categoryProfile(selectedCategory)
   const availableDisplays = bindableAssets.filter((item) => categoryProfile(item.category) === 'DISPLAY' && item.id !== asset?.id
@@ -232,7 +234,7 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
       </section>
 
       <section className="form-section">
-        <div className="form-section-head"><div><h3>{profile === 'DISPLAY' ? '显示器参数' : profile === 'COMPUTER' ? '电脑配置' : '设备参数'}</h3><p>{profile === 'DISPLAY' ? '显示器型号、规格与采购识别信息' : profile === 'COMPUTER' ? '电脑型号与主要硬件参数' : '普通设备的型号与识别信息'}</p></div><span className={`profile-badge ${profile.toLowerCase()}`}>{profile === 'DISPLAY' ? '显示设备' : profile === 'COMPUTER' ? '电脑设备' : '普通设备'}</span></div>
+        <div className="form-section-head"><div><h3>{profile === 'DISPLAY' ? '显示器参数' : profile === 'COMPUTER' ? '电脑配置' : '设备参数'}</h3><p>{profile === 'DISPLAY' ? '显示器型号、规格与采购识别信息' : profile === 'COMPUTER' ? '电脑型号与主要硬件参数' : '通用设备的型号、订单号与自定义参数'}</p></div>{profile === 'GENERAL' ? <button type="button" className="section-add-button" disabled={form.customParameters.length >= 5} title={form.customParameters.length >= 5 ? '一排最多显示5个自定义参数' : '添加自定义参数'} onClick={() => set('customParameters', [...form.customParameters, { name: '', value: '' }])}><PlusIcon />添加参数</button> : <span className={`profile-badge ${profile.toLowerCase()}`}>{profile === 'DISPLAY' ? '显示设备' : '电脑设备'}</span>}</div>
         <div className={`form-row-grid device-config-grid profile-${profile.toLowerCase()}`}>
           {profile === 'COMPUTER' && <>
             {modelField('电脑型号')}
@@ -251,6 +253,10 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
           {profile === 'GENERAL' && <>
             {modelField('设备型号')}
             <label><span>订单号</span><input maxLength={160} value={form.orderNumber} onChange={(event) => set('orderNumber', event.target.value)} placeholder="采购订单号" /></label>
+            {form.customParameters.map((parameter, index) => <div className="custom-parameter-field" key={index}>
+              <input className="custom-parameter-key" required maxLength={120} value={parameter.name} onChange={(event) => updateCustomParameter(index, { name: event.target.value })} placeholder="参数名称" aria-label={`自定义参数 ${index + 1} 名称`} />
+              <div><input required maxLength={1000} value={parameter.value} onChange={(event) => updateCustomParameter(index, { value: event.target.value })} placeholder="参数值" aria-label={`自定义参数 ${index + 1} 值`} /><button type="button" className="remove-row-button" title="删除参数" onClick={() => set('customParameters', form.customParameters.filter((_, itemIndex) => itemIndex !== index))}><TrashIcon /></button></div>
+            </div>)}
           </>}
         </div>
       </section>

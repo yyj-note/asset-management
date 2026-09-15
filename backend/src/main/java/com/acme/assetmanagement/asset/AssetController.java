@@ -46,20 +46,21 @@ public class AssetController {
         return service.get(id);
     }
 
-    @GetMapping(value = "/export/template.csv", produces = "text/csv;charset=UTF-8")
+    @GetMapping(value = {"/export.csv", "/export/template.csv"}, produces = "text/csv;charset=UTF-8")
     @PreAuthorize("hasAuthority('ASSET_VIEW')")
-    public ResponseEntity<byte[]> exportTemplate() {
-        auditLogService.success(AuditAction.CSV_TEMPLATE_EXPORT, "CSV", null, "资产导入模板",
-                "下载资产 CSV 空模板", Map.of());
+    public ResponseEntity<byte[]> exportAssets() {
+        List<AssetResponse> assets = service.list("");
+        auditLogService.success(AuditAction.CSV_TEMPLATE_EXPORT, "CSV", null, "全部资产数据",
+                "导出全部资产数据，共 " + assets.size() + " 项", Map.of("导出数量", assets.size()));
         String disposition = ContentDisposition.attachment()
-                .filename("asset-import-template.csv", StandardCharsets.UTF_8)
+                .filename("asset-data.csv", StandardCharsets.UTF_8)
                 .build()
                 .toString();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header("Content-Disposition", disposition)
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-                .body(csvTemplateService.createEmptyTemplate());
+                .body(csvTemplateService.createAssetExport(assets));
     }
 
     @PostMapping(value = "/import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

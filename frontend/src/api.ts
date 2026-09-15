@@ -94,7 +94,7 @@ export const api = {
   returnAssetByQrToken: (qrToken: string) =>
     mutate<Asset>(`/api/assets/qr/${encodeURIComponent(qrToken)}/return`, { method: 'POST' }),
   deleteAsset: (id: number) => mutate<void>(`/api/assets/${id}`, { method: 'DELETE' }),
-  downloadAssetCsvTemplate: () => download('/api/assets/export/template.csv', 'asset-import-template.csv'),
+  downloadAssetCsv: () => download('/api/assets/export.csv', 'asset-data.csv'),
   previewAssetCsv: (file: File) => {
     const form = new FormData(); form.append('file', file)
     return mutateForm<CsvImportPreview>('/api/assets/import/preview', form)

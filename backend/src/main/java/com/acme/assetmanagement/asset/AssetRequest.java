@@ -35,7 +35,8 @@ public record AssetRequest(
         List<Long> boundDisplayIds,
         Long boundComputerId,
         List<@Valid RelatedDeviceRequest> relatedDevices,
-        List<@Valid AccessoryRequest> accessories
+        List<@Valid AccessoryRequest> accessories,
+        @Size(max = 5, message = "自定义参数最多5项") List<@Valid CustomParameterRequest> customParameters
 ) {
     public record RelatedDeviceRequest(
             @NotBlank(message = "随附配件名称不能为空") @Size(max = 120) String name,
@@ -50,5 +51,10 @@ public record AssetRequest(
             @NotBlank(message = "配件名称不能为空") @Size(max = 120) String name,
             @Size(max = 200) String specification,
             @Min(value = 1, message = "配件数量至少为1") @Max(value = 9999, message = "配件数量不能超过9999") int quantity
+    ) {}
+
+    public record CustomParameterRequest(
+            @NotBlank(message = "参数名称不能为空") @Size(max = 120, message = "参数名称不能超过120个字符") String name,
+            @NotBlank(message = "参数值不能为空") @Size(max = 1000, message = "参数值不能超过1000个字符") String value
     ) {}
 }

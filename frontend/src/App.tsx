@@ -16,6 +16,7 @@ import { AuditLogPage } from './components/AuditLogPage'
 import { AvatarEditor } from './components/AvatarEditor'
 import { AssetLabelPrintPreview } from './components/AssetLabelPrintPreview'
 import { ComputerDashboard } from './components/ComputerDashboard'
+import { AssetTransfer } from './components/AssetTransfer'
 
 type Page = { name: 'list' } | { name: 'form'; asset: Asset | null; clone?: boolean } | { name: 'detail'; asset: Asset }
 type AppHistoryState = { assetManagement: true; section: AppSection; page: Page; depth: number }
@@ -210,6 +211,11 @@ export default function App() {
     assets.forEach((asset) => categories.set(asset.category.id, asset.category))
     return Array.from(categories.values()).sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
   }, [assets, lookups])
+  const tableParameterProfile: AssetProfile | null = computerOnly
+    ? 'COMPUTER'
+    : categoryFilter
+      ? categoryOptions.find((category) => String(category.id) === categoryFilter)?.assetProfile || 'GENERAL'
+      : null
 
   const visibleAssets = useMemo(() => assets.filter((asset) => {
     if (computerOnly && asset.category.assetProfile !== 'COMPUTER') return false
@@ -320,7 +326,13 @@ export default function App() {
 
   if (section === 'settings' && authUser.canManageUsers) return <div className="app-shell">
     <Sidebar section={section} canManageUsers={authUser.canManageUsers} onFilter={setFilter} onSection={(next) => showView(next, { name: 'list' })} />
-    <main className="main-content">{topbar}<div className="content"><SystemSettings onNotify={notify} onImported={() => load(search)} /></div></main>
+    <main className="main-content">{topbar}<div className="content"><SystemSettings onNotify={notify} /></div></main>
+    {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
+  </div>
+
+  if (section === 'transfer') return <div className="app-shell">
+    <Sidebar section={section} canManageUsers={authUser.canManageUsers} onFilter={setFilter} onSection={(next) => showView(next, { name: 'list' })} />
+    <main className="main-content">{topbar}<div className="content"><AssetTransfer onNotify={notify} onImported={() => load(search)} /></div></main>
     {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
   </div>
 
@@ -367,7 +379,7 @@ export default function App() {
         </div>
         {hasPermission('ASSET_CREATE') && <button className="button primary" onClick={() => showView('assets', { name: 'form', asset: null })}><PlusIcon />新增资产</button>}
       </div>
-      <AssetTable assets={visibleAssets} loading={loading} canEdit={hasPermission('ASSET_EDIT')} onSelect={(asset) => showView('assets', { name: 'detail', asset })} onEdit={(asset) => showView('assets', { name: 'form', asset })} onClone={(asset) => showView('assets', { name: 'form', asset, clone: true })} />
+      <AssetTable assets={visibleAssets} loading={loading} canEdit={hasPermission('ASSET_EDIT')} parameterProfile={tableParameterProfile} onSelect={(asset) => showView('assets', { name: 'detail', asset })} onEdit={(asset) => showView('assets', { name: 'form', asset })} onClone={(asset) => showView('assets', { name: 'form', asset, clone: true })} />
       <div className="panel-foot"><span>共 {visibleAssets.length} 条{categoryFilter ? categoryOptions.find((category) => String(category.id) === categoryFilter)?.name ?? '分类资产' : filter === 'all' ? '资产' : filterLabels[filter]}</span><span>点击资产行查看完整档案</span></div>
     </section></div>
   </section>

@@ -53,6 +53,18 @@ class AuditAndImportTest {
     }
 
     @Test
+    void exportsEveryAssetAsCsvData() throws Exception {
+        String csv = mockMvc.perform(get("/api/assets/export.csv").with(assetUser()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        assertTrue(csv.startsWith("\uFEFF资产编号*,资产名称*,所属公司*"));
+        assetRepository.findAll().forEach(asset -> assertTrue(csv.contains(asset.getAssetTag())));
+        assertTrue(auditLogRepository.findAll().stream().anyMatch(log ->
+                "CSV_TEMPLATE_EXPORT".equals(log.getAction().name()) && log.getSummary().contains("导出全部资产数据")));
+    }
+
+    @Test
     void onlySuperAdminCanReadAuditLogs() throws Exception {
         mockMvc.perform(get("/api/audit-logs").with(assetUser())).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/audit-logs").with(adminUser()))
@@ -63,8 +75,8 @@ class AuditAndImportTest {
     @Test
     void previewsAndImportsValidCsvAsOneTransaction() throws Exception {
         MockMultipartFile file = csv("""
-                资产编号*,资产名称*,所属公司*,电脑型号*,资产分类*,资产状态*,存放位置*,CPU,内存,硬盘,显卡,厂家序列号,采购价格(元),当前价值(元),领用人,图片地址,备注,关联设备(JSON)
-                202600000099,导入测试电脑,新公司,新型号,笔记本电脑,当前可用,新仓库,i7,16G,512G,,CSV-SN-001,6999,6200,,,,"[{""name"":""鼠标"",""quantity"":1}]"
+                资产编号*,资产名称*,所属公司*,电脑型号*,资产分类*,资产状态*,存放位置*,CPU,内存,硬盘,显卡,厂家序列号,采购价格(元),当前价值(元),领用人,图片地址,备注,关联设备(JSON),自定义参数(JSON)
+                202600000099,导入测试电脑,新公司,新型号,笔记本电脑,当前可用,新仓库,i7,16G,512G,,CSV-SN-001,6999,6200,,,,"[{""name"":""鼠标"",""quantity"":1}]","[{""name"":""管理IP"",""value"":""192.168.1.20""}]"
                 """);
 
         mockMvc.perform(multipart("/api/assets/import/preview").file(file).with(assetUser()).with(csrf()))
@@ -78,6 +90,8 @@ class AuditAndImportTest {
 
         assertTrue(assetRepository.existsByAssetTagIgnoreCase("202600000099"));
         assertTrue(assetRepository.findAll().stream().anyMatch(asset -> "CSV-SN-001".equals(asset.getManufacturerSerialNumber())));
+        assertTrue(assetRepository.findByAssetTagIgnoreCase("202600000099").orElseThrow().getCustomParameters().stream()
+                .anyMatch(parameter -> "管理IP".equals(parameter.getName()) && "192.168.1.20".equals(parameter.getValue())));
         assertTrue(auditLogRepository.findAll().stream().anyMatch(log -> "CSV_IMPORT".equals(log.getAction().name())));
     }
 
