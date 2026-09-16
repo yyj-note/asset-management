@@ -269,6 +269,9 @@ public class AssetService {
         asset.setCustomParameters(request.customParameters() == null ? List.of() : request.customParameters().stream()
                 .map(parameter -> new AssetCustomParameter(parameter.name().trim(), parameter.value().trim()))
                 .toList());
+        if (profile == AssetProfile.GENERAL) {
+            category.setParameterTemplate(asset.getCustomParameters().stream().map(AssetCustomParameter::getName).toList());
+        }
     }
 
     void bindByAssetTags(Long assetId, List<String> displayTags, String computerTag) {

@@ -120,7 +120,12 @@ public class AuthController {
             @NotBlank(message = "请输入当前密码") String currentPassword,
             @NotBlank(message = "请输入新密码")
             @Size(min = 8, max = 80, message = "新密码长度需要在8到80位之间") String newPassword
-    ) {}
+    ) {
+        @jakarta.validation.constraints.AssertTrue(message = "新密码的 UTF-8 编码不能超过72字节")
+        public boolean isPasswordWithinByteLimit() {
+            return newPassword == null || newPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72;
+        }
+    }
     public record CsrfResponse(String headerName, String token) {}
     public record AuthResponse(Long id, String username, UserRole role,
                                Set<Permission> permissions, boolean canManageUsers, boolean hasAvatar) {

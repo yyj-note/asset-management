@@ -4,6 +4,7 @@ import type { Asset, AssetFilter, AssetPayload, AssetProfile, AuthUser, LookupTy
 import { AssetDetail } from './components/AssetDetail'
 import { AssetForm } from './components/AssetForm'
 import { AssetTable } from './components/AssetTable'
+import { MoonIcon, SunIcon } from './components/Icons'
 import { LookupModal } from './components/LookupModal'
 import { ArchiveIcon, BoxesIcon, CheckIcon, ChevronIcon, CloseIcon, LogoutIcon, PlusIcon, ReturnIcon, SearchIcon, UserIcon, WrenchIcon } from './components/Icons'
 import { Sidebar } from './components/Sidebar'
@@ -29,6 +30,13 @@ const isLabelPrintPage = window.location.pathname.replace(/\/+$/, '') === '/labe
 const isMaintenance = (asset: Asset) => asset.status.name.includes('维修') || asset.status.name.includes('维护')
 const isScrapped = (asset: Asset) => asset.status.name.includes('报废')
 export default function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try { return localStorage.getItem('asset-management-theme') === 'dark' ? 'dark' : 'light' } catch { return 'light' }
+  })
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try { localStorage.setItem('asset-management-theme', theme) } catch { /* Theme still works when storage is unavailable. */ }
+  }, [theme])
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authChecking, setAuthChecking] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
@@ -313,7 +321,7 @@ export default function App() {
   const accountName = authUser.username
   const topbar = <>
     <header className="topbar">
-      <div className="topbar-actions"><button className="avatar avatar-button" aria-label="设置我的头像" title="设置我的头像" onClick={() => setAvatarEditorOpen(true)}>{authUser.hasAvatar ? <img src={`/api/users/${authUser.id}/avatar?v=${avatarRevision}`} alt="我的头像" /> : accountName.slice(0, 1).toUpperCase()}</button><div className="account-summary"><strong>{accountName}</strong></div><button className="logout-button" aria-label="退出登录" title="退出登录" onClick={() => void logout()}><LogoutIcon /></button></div>
+      <div className="topbar-actions"><button type="button" className="theme-toggle" aria-label={theme === 'light' ? '切换为暗色' : '切换为亮色'} title={theme === 'light' ? '切换为暗色' : '切换为亮色'} onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <MoonIcon /> : <SunIcon />}</button><button className="avatar avatar-button" aria-label="设置我的头像" title="设置我的头像" onClick={() => setAvatarEditorOpen(true)}>{authUser.hasAvatar ? <img src={`/api/users/${authUser.id}/avatar?v=${avatarRevision}`} alt="我的头像" /> : accountName.slice(0, 1).toUpperCase()}</button><div className="account-summary"><strong>{accountName}</strong></div><button className="logout-button" aria-label="退出登录" title="退出登录" onClick={() => void logout()}><LogoutIcon /></button></div>
     </header>
     {avatarEditorOpen && <AvatarEditor user={authUser} revision={avatarRevision} busy={avatarSaving} onClose={() => !avatarSaving && setAvatarEditorOpen(false)} onUpload={uploadAvatar} onDelete={deleteMyAvatar} onError={(message) => notify(message, 'error')} />}
   </>

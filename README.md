@@ -2,6 +2,8 @@
 
 面向公司内部的资产管理工具，使用 React 19.2.8 + Spring Boot 4.1.0 + MySQL 8.4.11 + Java 21（运行环境 21.0.11）+ TypeScript 7.0.2 + Vite 8.2.1 + Maven 3.9.11，通过 Docker ComposeV2 部署。
 
+![pasted-image.png · 814](https://img.cdn1.vip/i/6aaa56c5b470d_1789548229.webp)
+
 ## 核心功能
 
 - 资产新增、编辑、克隆、领用、归还和删除，自动生成资产编号。

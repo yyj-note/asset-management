@@ -137,6 +137,31 @@ class UserAuthTest {
                 .andExpect(status().isOk());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"ascii", "unicode"})
+    @Transactional
+    void rejectsPasswordsOverBcryptByteLimit(String variant) throws Exception {
+        String password = variant.equals("ascii") ? "a".repeat(73) : "密".repeat(25);
+        mockMvc.perform(post("/api/users").with(user("admin").roles("SUPER_ADMIN")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"long-password\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isBadRequest());
+        var account = new com.acme.assetmanagement.user.UserAccount();
+        account.setUsername("password-boundary");
+        account.setDisplayName("password-boundary");
+        account.setPasswordHash(passwordEncoder.encode("ValidPass123!"));
+        account.setRole(UserRole.USER);
+        account.setEnabled(true);
+        userRepository.saveAndFlush(account);
+        mockMvc.perform(put("/api/users/{id}", account.getId()).with(user("admin").roles("SUPER_ADMIN")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"password\":\"" + password + "\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/auth/password").session(loginSession("admin", "ChangeMe123!")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"ChangeMe123!\",\"newPassword\":\"" + password + "\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     private MockHttpSession loginSession(String username, String password) throws Exception {
         return (MockHttpSession) mockMvc.perform(post("/api/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

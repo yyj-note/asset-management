@@ -7,6 +7,7 @@ export interface LookupValue {
   typeLabel: string
   name: string
   assetProfile: AssetProfile | null
+  parameterTemplate?: string[]
 }
 
 export interface Asset {

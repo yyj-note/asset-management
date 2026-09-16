@@ -52,6 +52,48 @@ class AssetApiTest {
     @Autowired LookupRepository lookupRepository;
     @Autowired AssetRepository assetRepository;
     @Autowired com.acme.assetmanagement.audit.AuditLogRepository auditLogRepository;
+    @Autowired jakarta.persistence.EntityManager entityManager;
+
+    @Test
+    void categoryTemplateRemembersNamesAndOrderWithoutChangingOtherAssets() throws Exception {
+        var seed = assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow();
+        var category = lookupRepository.saveAndFlush(new LookupValue(LookupType.CATEGORY, "模板测试网络", AssetProfile.GENERAL));
+        var otherCategory = lookupRepository.saveAndFlush(new LookupValue(LookupType.CATEGORY, "模板测试其他", AssetProfile.GENERAL));
+        long categoryId = category.getId();
+        long otherCategoryId = otherCategory.getId();
+        String template = """
+                {"assetTag":"%s","name":"模板测试","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"checkedOut":false,"assignedTo":"测试人",
+                 "customParameters":%s}
+                """;
+        String first = template.formatted("960000009001", seed.getCompany().getId(), seed.getModel().getId(),
+                categoryId, seed.getStatus().getId(), seed.getLocation().getId(),
+                "[{\"name\":\"网口\",\"value\":\"48\"},{\"name\":\"连接接口\",\"value\":\"47\"}]");
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(first))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category.parameterTemplate[0]").value("网口"));
+        String second = template.formatted("960000009002", seed.getCompany().getId(), seed.getModel().getId(),
+                categoryId, seed.getStatus().getId(), seed.getLocation().getId(),
+                "[{\"name\":\"连接接口\",\"value\":\"23\"},{\"name\":\"网口\",\"value\":\"24\"}]");
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(second))
+                .andExpect(status().isCreated());
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals(java.util.List.of("连接接口", "网口"), lookupRepository.findById(categoryId).orElseThrow().getParameterTemplate());
+        assertTrue(lookupRepository.findById(otherCategoryId).orElseThrow().getParameterTemplate().isEmpty());
+        var original = assetRepository.findByAssetTagIgnoreCase("960000009001").orElseThrow();
+        assertEquals("网口", original.getCustomParameters().get(0).getName());
+        assertEquals("48", original.getCustomParameters().get(0).getValue());
+        mockMvc.perform(put("/api/assets/{id}", original.getId()).with(assetUser()).with(csrf())
+                        .header("If-Match", original.getVersion()).contentType(MediaType.APPLICATION_JSON).content(first))
+                .andExpect(status().isOk());
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals(java.util.List.of("网口", "连接接口"), lookupRepository.findById(categoryId).orElseThrow().getParameterTemplate());
+        mockMvc.perform(get("/api/lookups").with(assetUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == '模板测试网络')].parameterTemplate[0]").value(hasItem("网口")));
+    }
 
     @Test
     void staleEditCannotUndoReturn() throws Exception {
@@ -478,6 +520,19 @@ class AssetApiTest {
     }
 
     @Test
+    void searchesAssetsByAssignedTo() throws Exception {
+        var asset = assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow();
+        asset.setStatus(lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "在用").orElseThrow());
+        asset.setCheckedOut(true);
+        asset.setAssignedTo("邓福平");
+        assetRepository.saveAndFlush(asset);
+
+        mockMvc.perform(get("/api/assets").param("search", "福平").with(assetUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].assetTag").value(asset.getAssetTag()));
+    }
+
+    @Test
     void createsLookupAndRejectsDuplicate() throws Exception {
         String body = "{\"type\":\"LOCATION\",\"name\":\"北京仓库\"}";
         mockMvc.perform(post("/api/lookups").with(assetUser()).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
@@ -605,6 +660,23 @@ class AssetApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.boundComputer.id").value(computerId))
                 .andExpect(jsonPath("$.boundComputer.assetTag").value("930000000002"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"relatedDevices", "accessories", "customParameters", "boundDisplayIds"})
+    void rejectsNullCollectionEntriesWithoutWritingAssets(String field) throws Exception {
+        var seed = assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow();
+        long before = assetRepository.count();
+        String body = """
+                {"assetTag":"980000000001","name":"空元素测试","companyId":%d,"modelId":%d,
+                 "categoryId":%d,"statusId":%d,"locationId":%d,"%s":[null]}
+                """.formatted(seed.getCompany().getId(), seed.getModel().getId(), seed.getCategory().getId(),
+                lookupRepository.findByTypeAndNameIgnoreCase(LookupType.STATUS, "可领用").orElseThrow().getId(),
+                seed.getLocation().getId(), field);
+        mockMvc.perform(post("/api/assets").with(assetUser()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        assertEquals(before, assetRepository.count());
     }
 
     private static RequestPostProcessor assetUser() {

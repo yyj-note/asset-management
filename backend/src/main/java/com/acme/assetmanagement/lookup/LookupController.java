@@ -29,6 +29,7 @@ public class LookupController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('ASSET_VIEW')")
     public List<LookupResponse> list(@RequestParam(required = false) LookupType type) {
         List<LookupValue> values = type == null
@@ -81,9 +82,9 @@ public class LookupController {
             AssetProfile assetProfile
     ) {}
 
-    public record LookupResponse(Long id, LookupType type, String typeLabel, String name, AssetProfile assetProfile) {
+    public record LookupResponse(Long id, LookupType type, String typeLabel, String name, AssetProfile assetProfile, List<String> parameterTemplate) {
         public static LookupResponse from(LookupValue value) {
-            return new LookupResponse(value.getId(), value.getType(), value.getType().getLabel(), value.getName(), value.getAssetProfile());
+            return new LookupResponse(value.getId(), value.getType(), value.getType().getLabel(), value.getName(), value.getAssetProfile(), List.copyOf(value.getParameterTemplate()));
         }
     }
 }

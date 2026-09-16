@@ -80,11 +80,17 @@ public class AuditLogController {
                     : spec.and((root, query, cb) -> root.get("action").in(moduleActions));
         }
         if (!action.isBlank()) {
-            try { spec = spec.and((root, query, cb) -> cb.equal(root.get("action"), AuditAction.valueOf(action))); }
+            try {
+                AuditAction selectedAction = AuditAction.valueOf(action.trim());
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("action"), selectedAction));
+            }
             catch (IllegalArgumentException ignored) { spec = spec.and((root, query, cb) -> cb.disjunction()); }
         }
         if (!result.isBlank()) {
-            try { spec = spec.and((root, query, cb) -> cb.equal(root.get("result"), AuditResult.valueOf(result))); }
+            try {
+                AuditResult selectedResult = AuditResult.valueOf(result.trim());
+                spec = spec.and((root, query, cb) -> cb.equal(root.get("result"), selectedResult));
+            }
             catch (IllegalArgumentException ignored) { spec = spec.and((root, query, cb) -> cb.disjunction()); }
         }
         if (!keyword.isBlank()) {

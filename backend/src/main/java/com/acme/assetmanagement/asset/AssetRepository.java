@@ -22,6 +22,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
                or lower(coalesce(a.storage, '')) like lower(concat('%', :search, '%'))
                or lower(coalesce(a.graphicsCard, '')) like lower(concat('%', :search, '%'))
                or lower(coalesce(a.manufacturerSerialNumber, '')) like lower(concat('%', :search, '%'))
+               or lower(coalesce(a.assignedTo, '')) like lower(concat('%', :search, '%'))
                or lower(a.company.name) like lower(concat('%', :search, '%'))
                or lower(a.model.name) like lower(concat('%', :search, '%'))
             order by a.updatedAt desc

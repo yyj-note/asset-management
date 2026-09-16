@@ -87,11 +87,21 @@ public class UserController {
     public record CreateUserRequest(
             @NotBlank(message = "请输入账号") @Size(max = 60, message = "账号不能超过60个字符") String username,
             @NotBlank(message = "请输入密码") @Size(min = 8, max = 80, message = "密码长度需要在8到80位之间") String password
-    ) {}
+    ) {
+        @jakarta.validation.constraints.AssertTrue(message = "密码的 UTF-8 编码不能超过72字节")
+        public boolean isPasswordWithinByteLimit() {
+            return password == null || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72;
+        }
+    }
 
     public record UpdateUserRequest(
             @NotBlank(message = "请输入新密码") @Size(min = 8, max = 80, message = "密码长度需要在8到80位之间") String password
-    ) {}
+    ) {
+        @jakarta.validation.constraints.AssertTrue(message = "密码的 UTF-8 编码不能超过72字节")
+        public boolean isPasswordWithinByteLimit() {
+            return password == null || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72;
+        }
+    }
 
     public record UserResponse(Long id, String username, UserRole role,
                                Set<Permission> permissions, boolean enabled, java.time.LocalDateTime createdAt,

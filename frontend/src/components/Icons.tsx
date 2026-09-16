@@ -1,6 +1,11 @@
 import type { SVGProps } from 'react'
 
 type Props = SVGProps<SVGSVGElement>
+export const SunIcon = (props: Props) => <Icon {...props}><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></Icon>
+export const MoonIcon = (props: Props) => <Icon {...props}><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z" /></Icon>
+
+export const ArrowUpIcon = (props: Props) => <Icon {...props}><path d="M12 19V5m-7 7 7-7 7 7" /></Icon>
+export const DragHandleIcon = (props: Props) => <Icon {...props}><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" strokeWidth="3" /></Icon>
 
 function Icon({ children, ...props }: Props) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{children}</svg>

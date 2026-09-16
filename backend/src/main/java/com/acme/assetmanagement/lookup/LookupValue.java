@@ -1,6 +1,8 @@
 package com.acme.assetmanagement.lookup;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "lookup_values", uniqueConstraints = @UniqueConstraint(columnNames = {"lookup_type", "name"}))
@@ -19,6 +21,18 @@ public class LookupValue {
     @Enumerated(EnumType.STRING)
     @Column(name = "asset_profile", length = 30)
     private AssetProfile assetProfile;
+
+    @ElementCollection
+    @CollectionTable(name = "category_parameter_templates", joinColumns = @JoinColumn(name = "category_id"))
+    @OrderColumn(name = "sort_order")
+    @Column(name = "parameter_name", nullable = false, length = 120)
+    private List<String> parameterTemplate = new ArrayList<>();
+
+    public List<String> getParameterTemplate() { return parameterTemplate; }
+    public void setParameterTemplate(List<String> names) {
+        parameterTemplate.clear();
+        parameterTemplate.addAll(names);
+    }
 
     protected LookupValue() {
     }

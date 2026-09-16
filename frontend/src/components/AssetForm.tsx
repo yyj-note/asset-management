@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Asset, AssetPayload, AssetProfile, CustomParameter, LookupType, LookupValue, RelatedDevice } from '../types'
 import { lookupLabels } from '../types'
-import { PlusIcon, SaveIcon, TrashIcon, UploadIcon } from './Icons'
+import { DragHandleIcon, PlusIcon, SaveIcon, TrashIcon, UploadIcon } from './Icons'
 import { EditableCombobox } from './EditableCombobox'
 import type { ComboboxOption } from './EditableCombobox'
 
@@ -143,6 +143,16 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
     return initial
   })
   const [imageError, setImageError] = useState('')
+  const [parameterDrag, setParameterDrag] = useState<{ from: number; to: number } | null>(null)
+  const moveParameter = (from: number, to: number) => {
+    setForm((current) => {
+      if (from === to || to < 0 || to >= current.customParameters.length) return current
+      const parameters = [...current.customParameters]
+      const [parameter] = parameters.splice(from, 1)
+      parameters.splice(to, 0, parameter)
+      return { ...current, customParameters: parameters }
+    })
+  }
   const [processingImages, setProcessingImages] = useState(false)
   const imageProcessingRef = useRef(false)
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -221,8 +231,13 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
           <label><span>所属公司 *</span><LookupField type="COMPANY" required value={form.companyId} values={lookups} onChange={(v) => set('companyId', v)} onNew={() => onNewLookup('COMPANY')} onDelete={onDeleteLookup} /></label>
           <label><span>归属部门</span><EditableCombobox editable value={form.ownershipDepartment} selectedId={selectedSuggestionId('DEPARTMENT', form.ownershipDepartment)} placeholder="输入或选择资产归属部门" options={suggestionOptions('DEPARTMENT')} onChange={(value) => set('ownershipDepartment', value.slice(0, 120))} onDelete={deleteSuggestion} /></label>
           <label><span>资产分类 *</span><LookupField type="CATEGORY" required value={form.categoryId} values={lookups} onChange={(v) => {
-            const nextProfile = categoryProfile(lookups.find((item) => item.id === v))
-            setForm((current) => ({ ...current, categoryId: v, boundDisplayIds: nextProfile === 'COMPUTER' ? current.boundDisplayIds : [], boundComputerId: nextProfile === 'DISPLAY' ? current.boundComputerId : null }))
+            const category = lookups.find((item) => item.id === v)
+            const nextProfile = categoryProfile(category)
+            setForm((current) => ({ ...current, categoryId: v,
+              customParameters: !asset && current.categoryId !== v && nextProfile === 'GENERAL'
+                ? (category?.parameterTemplate || []).map((name) => ({ name, value: '' }))
+                : current.customParameters,
+              boundDisplayIds: nextProfile === 'COMPUTER' ? current.boundDisplayIds : [], boundComputerId: nextProfile === 'DISPLAY' ? current.boundComputerId : null }))
           }} onNew={() => onNewLookup('CATEGORY')} onDelete={onDeleteLookup} /></label>
           <label><span>存放位置 *</span><LookupField type="LOCATION" required value={form.locationId} values={lookups} onChange={(v) => set('locationId', v)} onNew={() => onNewLookup('LOCATION')} onDelete={onDeleteLookup} /></label>
           <label><span>资产状态 *</span><LookupField type="STATUS" required value={form.statusId} values={lookups} onChange={(v) => {
@@ -253,7 +268,37 @@ export function AssetForm({ asset, clone = false, lookups, bindableAssets, savin
           {profile === 'GENERAL' && <>
             {modelField('设备型号')}
             <label><span>订单号</span><input maxLength={160} value={form.orderNumber} onChange={(event) => set('orderNumber', event.target.value)} placeholder="采购订单号" /></label>
-            {form.customParameters.map((parameter, index) => <div className="custom-parameter-field" key={index}>
+            {form.customParameters.map((parameter, index) => <div className={`custom-parameter-field${parameterDrag?.from === index ? ' parameter-dragging' : ''}${parameterDrag?.to === index ? ' parameter-drop-target' : ''}`} data-parameter-index={index} key={index}>
+              <button type="button" className="parameter-drag-handle" disabled={saving || form.customParameters.length < 2}
+                aria-label={`调整自定义参数 ${index + 1} 顺序`} title="拖动调整顺序，也可按左右方向键"
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  setParameterDrag({ from: index, to: index })
+                }}
+                onPointerMove={(event) => {
+                  if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+                  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-parameter-index]')
+                  const grid = event.currentTarget.closest('.device-config-grid')
+                  const to = target && grid?.contains(target) ? Number(target.dataset.parameterIndex) : index
+                  setParameterDrag({ from: index, to })
+                }}
+                onPointerUp={(event) => {
+                  if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+                  if (parameterDrag) moveParameter(parameterDrag.from, parameterDrag.to)
+                  event.currentTarget.releasePointerCapture(event.pointerId)
+                  setParameterDrag(null)
+                }}
+                onLostPointerCapture={() => setParameterDrag(null)}
+                onPointerCancel={() => setParameterDrag(null)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+                  event.preventDefault()
+                  const to = index + (event.key === 'ArrowLeft' ? -1 : 1)
+                  const grid = event.currentTarget.closest('.device-config-grid')
+                  moveParameter(index, to)
+                  requestAnimationFrame(() => grid?.querySelector<HTMLButtonElement>(`[data-parameter-index="${to}"] .parameter-drag-handle`)?.focus())
+                }}><DragHandleIcon /></button>
               <input className="custom-parameter-key" required maxLength={120} value={parameter.name} onChange={(event) => updateCustomParameter(index, { name: event.target.value })} placeholder="参数名称" aria-label={`自定义参数 ${index + 1} 名称`} />
               <div><input required maxLength={1000} value={parameter.value} onChange={(event) => updateCustomParameter(index, { value: event.target.value })} placeholder="参数值" aria-label={`自定义参数 ${index + 1} 值`} /><button type="button" className="remove-row-button" title="删除参数" onClick={() => set('customParameters', form.customParameters.filter((_, itemIndex) => itemIndex !== index))}><TrashIcon /></button></div>
             </div>)}

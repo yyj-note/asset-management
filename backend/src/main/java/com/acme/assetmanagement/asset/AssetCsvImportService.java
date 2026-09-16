@@ -128,13 +128,18 @@ public class AssetCsvImportService {
             validateRelatedDevices(row, errors, invalidRows);
             validateBindingTags(row, fileTags, errors, invalidRows);
             try {
-                validator.validate(requestFor(row, 1L, 1L, 1L, 1L, 1L)).forEach(violation ->
+                AssetRequest request = requestFor(row, 1L, 1L, 1L, 1L, 1L);
+                validator.validate(request).forEach(violation ->
                         add(errors, invalidRows, row, violation.getPropertyPath().toString(), violation.getMessage()));
                 for (String field : List.of("所属公司*", "资产分类*", "存放位置*")) {
                     if (row.value(field).length() > 200) add(errors, invalidRows, row, field, "不能超过200个字符");
                 }
                 if (modelValue(row).length() > 200) add(errors, invalidRows, row, "设备型号*", "不能超过200个字符");
-                if (!row.value("图片地址").isBlank()) imageStorage.validateReference(row.value("图片地址"));
+                if (request.imageUrls() != null) {
+                    request.imageUrls().forEach(imageStorage::validateReference);
+                } else if (request.imageUrl() != null) {
+                    imageStorage.validateReference(request.imageUrl());
+                }
             } catch (ApiException exception) {
                 add(errors, invalidRows, row, "资产字段", exception.getMessage());
             }
@@ -163,7 +168,7 @@ public class AssetCsvImportService {
                 decimal(row.value("采购价格(元)"), row.rowNumber(), "采购价格(元)"),
                 decimal(row.value("当前价值(元)"), row.rowNumber(), "当前价值(元)"),
                 isCheckedOutStatus(row.value("资产状态*")), clean(row.value("领用人")), clean(row.value("图片地址")),
-                null, clean(row.value("备注")), List.of(), null,
+                imageUrls(row.value("图片地址(JSON)"), row.rowNumber()), clean(row.value("备注")), List.of(), null,
                 relatedDevices(relatedDevicesValue(row), row.rowNumber()), List.of(),
                 customParameters(row.value("自定义参数(JSON)"), row.rowNumber()));
     }
@@ -286,6 +291,19 @@ public class AssetCsvImportService {
         }
     }
 
+    private List<String> imageUrls(String value, int rowNumber) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            List<String> images = objectMapper.readValue(value, new TypeReference<List<String>>() {});
+            if (images == null || images.size() > 5 || images.stream().anyMatch(image -> image == null || image.isBlank())) {
+                throw new IllegalArgumentException();
+            }
+            return images;
+        } catch (Exception exception) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "第 " + rowNumber + " 行图片地址 JSON 必须是最多5个非空地址组成的数组");
+        }
+    }
+
     private LookupValue resolveLookup(LookupType type, String name, boolean create, Set<String> created) {
         if (type == LookupType.STATUS) {
             return findStatus(name).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
@@ -315,12 +333,24 @@ public class AssetCsvImportService {
         if (file == null || file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "请选择 CSV 文件");
         if (file.getSize() > MAX_FILE_SIZE) throw new ApiException(HttpStatus.BAD_REQUEST, "CSV 文件不能超过5MB");
         String text;
-        try { text = new String(file.getBytes(), StandardCharsets.UTF_8); }
+        try {
+            text = StandardCharsets.UTF_8.newDecoder()
+                    .decode(java.nio.ByteBuffer.wrap(file.getBytes())).toString();
+        }
+        catch (java.nio.charset.CharacterCodingException exception) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CSV 编码不是 UTF-8，请另存为 CSV UTF-8 后再导入");
+        }
         catch (IOException exception) { throw new ApiException(HttpStatus.BAD_REQUEST, "无法读取 CSV 文件"); }
         if (text.startsWith("\uFEFF")) text = text.substring(1);
         List<List<String>> records = parseCsv(text);
         if (records.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "CSV 文件没有表头");
         List<String> headers = records.getFirst().stream().map(String::trim).toList();
+        Set<String> seenHeaders = new HashSet<>();
+        for (String header : headers) {
+            if (!header.isBlank() && !seenHeaders.add(header)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "CSV 表头重复：" + header);
+            }
+        }
         List<String> missing = REQUIRED_HEADERS.stream().filter(header -> !headers.contains(header)).toList();
         if (!headers.contains("设备型号*") && !headers.contains("电脑型号*")) {
             missing = new ArrayList<>(missing);
@@ -331,6 +361,9 @@ public class AssetCsvImportService {
         for (int index = 1; index < records.size(); index++) {
             List<String> values = records.get(index);
             if (values.stream().allMatch(String::isBlank)) continue;
+            if (values.size() > headers.size()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "第 " + (index + 1) + " 行列数超过表头，请检查逗号和双引号");
+            }
             Map<String, String> data = new LinkedHashMap<>();
             for (int column = 0; column < headers.size(); column++) {
                 data.put(headers.get(column), column < values.size() ? values.get(column).trim() : "");
@@ -347,19 +380,30 @@ public class AssetCsvImportService {
         List<String> row = new ArrayList<>();
         StringBuilder field = new StringBuilder();
         boolean quoted = false;
+        boolean closedQuote = false;
         for (int i = 0; i < text.length(); i++) {
             char character = text.charAt(i);
             if (character == '"') {
                 if (quoted && i + 1 < text.length() && text.charAt(i + 1) == '"') {
                     field.append('"'); i++;
-                } else quoted = !quoted;
+                } else if (quoted) {
+                    quoted = false;
+                    closedQuote = true;
+                } else if (field.isEmpty() && !closedQuote) {
+                    quoted = true;
+                } else {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "CSV 双引号位置错误，请使用双引号包围整个字段并将内部双引号写成两个双引号");
+                }
             } else if (character == ',' && !quoted) {
                 row.add(field.toString()); field.setLength(0);
+                closedQuote = false;
             } else if ((character == '\n' || character == '\r') && !quoted) {
                 if (character == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') i++;
                 row.add(field.toString()); field.setLength(0);
                 records.add(row); row = new ArrayList<>();
+                closedQuote = false;
             } else {
+                if (closedQuote) throw new ApiException(HttpStatus.BAD_REQUEST, "CSV 闭合双引号后只能是逗号或换行");
                 field.append(character);
             }
         }

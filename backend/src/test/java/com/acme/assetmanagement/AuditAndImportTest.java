@@ -33,6 +33,7 @@ class AuditAndImportTest {
     @Autowired AuditLogRepository auditLogRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.acme.assetmanagement.audit.AuditLogService auditService;
+    @Autowired com.acme.assetmanagement.asset.AssetCsvTemplateService csvExportService;
 
     @Test
     void previewRejectsOverlongNameAndWrongBindingType() throws Exception {
@@ -70,6 +71,37 @@ class AuditAndImportTest {
         mockMvc.perform(get("/api/audit-logs").with(adminUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray());
+    }
+
+    @Test
+    void rejectsMalformedCsvWithoutChangingData() throws Exception {
+        long before = assetRepository.count();
+        String header = "资产编号*,资产名称*,所属公司*,设备型号*,资产分类*,资产状态*,存放位置*\n";
+        for (String name : java.util.List.of("坏\"名\"称", "\"名称\"多余")) {
+            var file = csv(header + "980000000001," + name + ",公司,型号,台式机,当前可用,仓库\n");
+            mockMvc.perform(multipart("/api/assets/import/preview").file(file).with(assetUser()).with(csrf()))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
+                    .andExpect(status().isBadRequest());
+        }
+        var invalidEncoding = new MockMultipartFile("file", "assets.csv", "text/csv",
+                (header + "980000000001,电脑,公司,型号,台式机,当前可用,仓库\n")
+                        .getBytes(java.nio.charset.Charset.forName("GBK")));
+        mockMvc.perform(multipart("/api/assets/import/commit").file(invalidEncoding).with(assetUser()).with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("UTF-8")));
+        org.junit.jupiter.api.Assertions.assertEquals(before, assetRepository.count());
+    }
+
+    @Test
+    void importsQuotedFieldsWithCommasQuotesAndNewlines() throws Exception {
+        var file = csv("资产编号*,资产名称*,所属公司*,设备型号*,资产分类*,资产状态*,存放位置*,备注\r\n"
+                + "980000000002,\"电脑,\"\"备用\"\"\",公司,型号,台式机,当前可用,仓库,\"第一行\n第二行\"\r\n");
+        mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk());
+        var asset = assetRepository.findByAssetTagIgnoreCase("980000000002").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("电脑,\"备用\"", asset.getName());
+        org.junit.jupiter.api.Assertions.assertEquals("第一行\n第二行", asset.getNotes());
     }
 
     @Test
@@ -157,6 +189,50 @@ class AuditAndImportTest {
         org.junit.jupiter.api.Assertions.assertEquals(before, assetRepository.count());
         org.junit.jupiter.api.Assertions.assertEquals(auditBefore, auditLogRepository.count());
         org.junit.jupiter.api.Assertions.assertFalse(assetRepository.existsByAssetTagIgnoreCase("950000000001"));
+    }
+
+    @Test
+    void exportedImagesSurviveCsvImport() throws Exception {
+        var asset = assetRepository.findByAssetTagIgnoreCase("202609010001").orElseThrow();
+        var images = java.util.List.of("https://example.com/front.png", "https://example.com/back.png");
+        asset.setImageUrls(images);
+        asset.setImageUrl(images.getFirst());
+        assetRepository.saveAndFlush(asset);
+        String exported = new String(csvExportService.createAssetExport(java.util.List.of(
+                com.acme.assetmanagement.asset.AssetResponse.from(asset))), StandardCharsets.UTF_8);
+        assertTrue(exported.contains(images.get(1)), "导出必须保留第二张图片");
+        exported = exported.replace(asset.getAssetTag(), "980000000002");
+        if (asset.getManufacturerSerialNumber() != null) exported = exported.replace(asset.getManufacturerSerialNumber(), "");
+        mockMvc.perform(multipart("/api/assets/import/commit").file(csv(exported.substring(1))).with(assetUser()).with(csrf()))
+                .andExpect(status().isOk());
+        entityManager.flush();
+        entityManager.clear();
+        org.junit.jupiter.api.Assertions.assertEquals(images,
+                assetRepository.findByAssetTagIgnoreCase("980000000002").orElseThrow().getImageUrls());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"duplicateHeader", "extraCell"})
+    void rejectsAmbiguousCsvColumnsBeforeImport(String variant) throws Exception {
+        String header = "资产编号*,资产名称*,所属公司*,设备型号*,资产分类*,资产状态*,存放位置*";
+        String row = "980000000003,测试电脑,测试公司,型号,台式机,当前可用,仓库";
+        if (variant.equals("duplicateHeader")) header += ",资产名称*";
+        var file = csv(header + "\n" + row + ",被静默覆盖的数据\n");
+        long before = assetRepository.count();
+        mockMvc.perform(multipart("/api/assets/import/preview").file(file).with(assetUser()).with(csrf()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(multipart("/api/assets/import/commit").file(file).with(assetUser()).with(csrf()))
+                .andExpect(status().isBadRequest());
+        org.junit.jupiter.api.Assertions.assertEquals(before, assetRepository.count());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"action", "result"})
+    void unknownAuditFilterReturnsNoMatches(String field) throws Exception {
+        mockMvc.perform(get("/api/audit-logs").param(field, "UNKNOWN").with(adminUser()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(get("/api/audit-logs/export.csv").param(field, "UNKNOWN").with(adminUser()))
+                .andExpect(status().isOk());
     }
 
     private static String bindingHeader() {

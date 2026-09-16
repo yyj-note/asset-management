@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { BackToTop } from './BackToTop'
 import type { Asset, AssetProfile } from '../types'
 import { CloneIcon, EditIcon } from './Icons'
 import { AssetImageLightbox } from './AssetImageLightbox'
@@ -33,8 +34,9 @@ const firstThreeParameters = (asset: Asset): AssetParameter[] => {
   return [0, 1, 2].map((index) => parameters[index] || { name: `参数${index + 1}`, value: '' })
 }
 
-export function AssetTable({ assets, loading, canEdit, parameterProfile, onSelect, onEdit, onClone }: Props) {
+export function AssetTable({ assets, loading, canEdit, onSelect, onEdit, onClone }: Props) {
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null)
+  const tableRef = useRef<HTMLDivElement>(null)
   const showPurchasePrice = assets.some((asset) => asset.purchasePrice != null)
   const showCurrentValue = assets.some((asset) => asset.currentValue != null)
   const valueColumnCount = Number(showPurchasePrice) + Number(showCurrentValue)
@@ -42,17 +44,9 @@ export function AssetTable({ assets, loading, canEdit, parameterProfile, onSelec
   const visibleParameterIndexes = [0, 1, 2].filter((index) => assetParameters.some((parameters) => Boolean(parameters[index]?.value.trim())))
   const columnCount = 9 + visibleParameterIndexes.length + valueColumnCount
   const tableMinimumWidth = 974 + visibleParameterIndexes.length * 128 + valueColumnCount * 110
-  const generalHeaders = [0, 1, 2].map((index) => assets.find((asset) =>
-    (asset.category.assetProfile || 'GENERAL') === 'GENERAL' && Boolean(asset.customParameters?.[index]?.name.trim())
-  )?.customParameters[index].name || '')
-  const parameterHeaders = parameterProfile === 'COMPUTER' ? ['CPU', '内存', '硬盘']
-    : parameterProfile === 'DISPLAY' ? ['屏幕尺寸', '分辨率', '显示接口']
-      : parameterProfile === 'GENERAL'
-        ? generalHeaders
-        : ['CPU', '内存', '硬盘']
 
   return (
-    <><div className="table-wrap">
+    <><div className="table-wrap" ref={tableRef}>
       <table className={`asset-table invoice-asset-table value-columns-${valueColumnCount}`} style={{ minWidth: tableMinimumWidth }}>
         <colgroup>
           <col className="asset-col-tag" />
@@ -69,7 +63,7 @@ export function AssetTable({ assets, loading, canEdit, parameterProfile, onSelec
           <col className="asset-col-actions" />
         </colgroup>
         <thead><tr>
-          <th>资产编号</th><th>资产名称</th><th>图片</th><th>设备型号</th>{visibleParameterIndexes.map((index) => <th key={`${parameterHeaders[index]}-${index}`}>{parameterHeaders[index]}</th>)}<th>分类</th><th>状态</th>
+          <th>资产编号</th><th>资产名称</th><th>图片</th><th>设备型号</th>{visibleParameterIndexes.length > 0 && <th colSpan={visibleParameterIndexes.length} scope="colgroup">规格配置</th>}<th>分类</th><th>状态</th>
           <th>领用人</th><th>位置</th>{showPurchasePrice && <th className="number">采购价格</th>}{showCurrentValue && <th className="number">当前价值</th>}<th className="sticky-action">操作</th>
         </tr></thead>
         <tbody>
@@ -87,7 +81,11 @@ export function AssetTable({ assets, loading, canEdit, parameterProfile, onSelec
                <td><strong className="asset-name compact-text" title={asset.name}>{asset.name}</strong></td>
                <td>{primaryImage ? <button className="image-preview-trigger" title={`点击查看${asset.imageUrls?.length || 1}张图片`} onClick={(event) => { event.stopPropagation(); setPreviewAsset(asset) }}><img className="table-image" src={primaryImage} alt={asset.name} /></button> : <span className="no-image">{asset.name.slice(0, 1)}</span>}</td>
                <td><span className="configuration-value compact-text" title={asset.model.name}>{asset.model.name}</span></td>
-               {visibleParameterIndexes.map((index) => <td key={`${parameters[index].name}-${index}`}><span className="configuration-value compact-text" title={parameters[index].value || '—'}>{parameters[index].value || '—'}</span></td>)}
+               {visibleParameterIndexes.map((index) => {
+                 const parameter = parameters[index]
+                 const text = parameter.value.trim() ? `${parameter.name}：${parameter.value}` : ''
+                 return <td key={`${parameter.name}-${index}`}>{text && <span className="configuration-value compact-text" title={text}>{text}</span>}</td>
+               })}
                <td><span className="compact-text" title={asset.category.name}>{asset.category.name}</span></td>
                <td><span className={`status-pill ${stateClass}`}>{state}</span></td>
                <td><span className="compact-text" title={asset.assignedTo || '暂未领用'}>{asset.assignedTo || '暂未领用'}</span></td>
@@ -102,6 +100,6 @@ export function AssetTable({ assets, loading, canEdit, parameterProfile, onSelec
            })}
         </tbody>
       </table>
-    </div><AssetImageLightbox asset={previewAsset} onClose={() => setPreviewAsset(null)} /></>
+    </div><BackToTop containerRef={tableRef} /><AssetImageLightbox asset={previewAsset} onClose={() => setPreviewAsset(null)} /></>
   )
 }

@@ -40,7 +40,8 @@ public class AssetCsvTemplateService {
             "绑定显示器资产编号(分号分隔)",
             "绑定电脑资产编号",
             "随附配件(JSON)",
-            "自定义参数(JSON)"
+            "自定义参数(JSON)",
+            "图片地址(JSON)"
     };
 
     public AssetCsvTemplateService(ObjectMapper objectMapper) {
@@ -65,7 +66,8 @@ public class AssetCsvTemplateService {
                 csv(asset.boundDisplays().stream().map(AssetResponse.AssetLinkResponse::assetTag).toList(), ";"),
                 csv(asset.boundComputer() == null ? null : asset.boundComputer().assetTag()),
                 csv(devicesJson(asset)),
-                csv(customParametersJson(asset))
+                csv(customParametersJson(asset)),
+                csv(asset.imageUrls().isEmpty() ? null : objectMapper.writeValueAsString(asset.imageUrls()))
         ));
     }
 
